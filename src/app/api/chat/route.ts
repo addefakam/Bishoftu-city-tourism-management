@@ -212,7 +212,7 @@ function localResponder(userMessage: string): string {
   }
 
   // Lakes
-  if (/\b(lake|crater|kayak|boat|water|swim)\b/.test(q)) {
+  if (/\b(lakes?|crater|kayak|boats?|water|swim)\b/.test(q)) {
     const lakes = attractions.filter((a) => a.category === 'lake')
     return `Bishoftu has seven crater lakes. The main ones on this platform:\n${lakes.map((l) => `• ${l.name} — ${l.description}`).join('\n')}\n\nFor lakeside resorts, see our hotel listings — try asking "find a lakeside resort".`
   }
