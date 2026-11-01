@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { store } from '@/lib/data'
 
 export async function GET() {
-  const hotels = await db.hotel.findMany()
-  const attractions = await db.attraction.count()
-  const businesses = await db.business.count()
+  const hotels = store.hotels.findMany()
+  const attractions = store.attractions.count()
+  const businesses = store.businesses.count()
 
   const totalRooms = hotels.reduce((s, h) => s + h.totalRooms, 0)
   const occupiedRooms = hotels.reduce((s, h) => s + h.occupiedRooms, 0)
@@ -44,7 +44,7 @@ export async function GET() {
     currentGuests: occupiedRooms,
     cityOccupancy,
     attractions,
-    businesses: businesses + hotels.length, // 32 registered tourism & hospitality businesses
+    businesses: businesses + hotels.length, // total registered tourism & hospitality businesses
     topHotels,
     byType,
     bySubCity,

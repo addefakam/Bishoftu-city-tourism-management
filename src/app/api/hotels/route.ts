@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { store } from '@/lib/data'
 
 export async function GET() {
-  const hotels = await db.hotel.findMany({ orderBy: { name: 'asc' } })
+  const hotels = store.hotels.findMany()
   return NextResponse.json({ hotels })
 }
