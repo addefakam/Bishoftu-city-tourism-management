@@ -1,0 +1,56 @@
+// Bishoftu City Tourism Management System — Prisma schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Hotel {
+  id             String   @id @default(cuid())
+  name           String
+  description    String
+  starRating     Int      // 1-5
+  type           String   // hotel, resort, motel, lodge
+  subCity        String
+  address        String
+  pricePerNight  Int?     // ETB per night
+  totalRooms     Int
+  occupiedRooms  Int      @default(0)
+  imageUrl       String?
+  phone          String?
+  email          String?
+  featured       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+}
+
+model Attraction {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  category    String   // lake, hot_spring, museum, church, park, viewpoint, wetland
+  subCity     String?
+  imageUrl    String?
+  featured    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model NewsPost {
+  id          String   @id @default(cuid())
+  title       String
+  excerpt     String
+  content     String?
+  hotelName   String?
+  publishedAt DateTime @default(now())
+}
+
+model Business {
+  id        String   @id @default(cuid())
+  name      String
+  type      String
+  subCity   String
+  createdAt DateTime @default(now())
+}
