@@ -1,11 +1,9 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { Sparkles, X, Send, Bot, User, Loader2 } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { Sparkles, X, Send, Bot, User, Loader2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import type { ChatMessage } from '@/lib/types'
 
 const QUICK_PROMPTS = [
@@ -15,63 +13,141 @@ const QUICK_PROMPTS = [
   'Best hotel for families with kids?',
 ]
 
+const WELCOME: ChatMessage = {
+  role: 'assistant',
+  content:
+    "👋 Hi! I'm the Bishoftu AI Tourism Assistant. Ask me about hotels, crater lakes, attractions, restaurants, getting around, or planning your visit — I'll answer using real information from this platform.",
+}
+
+const REQUEST_TIMEOUT_MS = 25_000
+
 export function AiChatWidget() {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: 'assistant',
-      content:
-        "👋 Hi! I'm the Bishoftu AI Tourism Assistant. Ask me about hotels, crater lakes, attractions, restaurants, getting around, or planning your visit — I'll answer using real information from this platform.",
-    },
-  ])
+  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME])
+  const [error, setError] = useState<string | null>(null)
+  // Ref to the scrollable messages container (a plain div with overflow-y-auto).
   const scrollRef = useRef<HTMLDivElement>(null)
+  // Queue of pending user messages to send (prevents the race condition where
+  // a second message was silently dropped while the first was in flight).
+  const queueRef = useRef<string[]>([])
+  // Currently-active AbortController, so we can cancel an in-flight request
+  // when the user closes the chat.
+  const abortRef = useRef<AbortController | null>(null)
 
-  // Auto-scroll to bottom on new message
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  // Auto-scroll to bottom on new message / status change.
+  const scrollToBottom = useCallback(() => {
+    const el = scrollRef.current
+    if (el) {
+      el.scrollTop = el.scrollHeight
     }
-  }, [messages, sending])
+  }, [])
 
-  async function send(text: string) {
-    const trimmed = text.trim()
-    if (!trimmed || sending) return
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages, sending, scrollToBottom])
 
-    const userMsg: ChatMessage = { role: 'user', content: trimmed }
-    const nextMessages = [...messages, userMsg]
-    setMessages(nextMessages)
-    setInput('')
+  // Abort any in-flight request when the widget unmounts
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort()
+    }
+  }, [])
+
+  const processQueue = useCallback(async () => {
+    if (sending) return
+    const next = queueRef.current.shift()
+    if (!next) return
+
     setSending(true)
+    setError(null)
+
+    // Snapshot the conversation state at send time so we don't depend on
+    // a possibly-stale `messages` closure.
+    setMessages((prev) => {
+      const withUser = [...prev, { role: 'user' as const, content: next }]
+      // Fire the request using this snapshot.
+      fire(withUser)
+      return withUser
+    })
+  }, [sending])
+
+  const fire = useCallback(async (conversation: ChatMessage[]) => {
+    const controller = new AbortController()
+    abortRef.current = controller
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: nextMessages }),
+        body: JSON.stringify({ messages: conversation }),
+        signal: controller.signal,
       })
-      const data = await res.json()
-      const reply: string = data.reply ?? "I'm sorry, I didn't quite catch that. Could you rephrase?"
-      setMessages((m) => [...m, { role: 'assistant', content: reply }])
-    } catch (err) {
-      console.error(err)
-      setMessages((m) => [
-        ...m,
-        {
-          role: 'assistant',
-          content:
-            "I'm having trouble connecting right now. Please try again, or contact the Bishoftu Tourism Office at +251 22 111 0101.",
-        },
-      ])
+
+      let data: { reply?: string; error?: string } = {}
+      try {
+        data = await res.json()
+      } catch {
+        // Server returned non-JSON (e.g. 500 HTML page) — fall through to error handler
+      }
+
+      if (!res.ok || !data.reply) {
+        const friendly =
+          res.status === 400
+            ? 'Please enter a question first.'
+            : res.status === 429
+              ? 'Too many requests — please wait a moment and try again.'
+              : "I'm having trouble responding right now. Please try again, or contact the Bishoftu Tourism Office at +251 22 111 0101."
+        setError(friendly)
+        setMessages((m) => [...m, { role: 'assistant', content: friendly }])
+      } else {
+        setMessages((m) => [...m, { role: 'assistant', content: data.reply! }])
+      }
+    } catch (err: unknown) {
+      // Aborted (user closed chat or timeout) — don't pollute the conversation
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return
+      }
+      const friendly =
+        "I'm having trouble connecting right now. Please try again, or contact the Bishoftu Tourism Office at +251 22 111 0101."
+      setError(friendly)
+      setMessages((m) => [...m, { role: 'assistant', content: friendly }])
     } finally {
+      clearTimeout(timeout)
+      abortRef.current = null
       setSending(false)
+      // If more messages were queued while this one was in flight, process the next.
+      if (queueRef.current.length > 0) {
+        void processQueue()
+      }
     }
-  }
+  }, [processQueue])
+
+  const send = useCallback(
+    (text: string) => {
+      const trimmed = text.trim()
+      if (!trimmed) return
+      queueRef.current.push(trimmed)
+      setInput('')
+      void processQueue()
+    },
+    [processQueue]
+  )
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     send(input)
+  }
+
+  function handleClose() {
+    // Cancel any in-flight request and clear the queue so stale replies
+    // don't appear after the user closes the widget.
+    abortRef.current?.abort()
+    queueRef.current = []
+    setSending(false)
+    setOpen(false)
   }
 
   return (
@@ -120,7 +196,7 @@ export function AiChatWidget() {
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/15"
-              onClick={() => setOpen(false)}
+              onClick={handleClose}
               aria-label="Close chat"
             >
               <X className="h-4 w-4" />
@@ -128,7 +204,13 @@ export function AiChatWidget() {
           </div>
 
           {/* Messages */}
-          <ScrollArea className="flex-1 min-h-0" ref={scrollRef}>
+          <div
+            ref={scrollRef}
+            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+            role="log"
+            aria-live="polite"
+            aria-label="Chat messages"
+          >
             <div className="p-4 space-y-3">
               {messages.map((m, i) => (
                 <div
@@ -139,19 +221,29 @@ export function AiChatWidget() {
                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
                       m.role === 'user'
                         ? 'bg-secondary text-secondary-foreground'
-                        : 'bg-primary text-primary-foreground'
+                        : m.content.startsWith("I'm having trouble") || m.content.startsWith('Please enter')
+                          ? 'bg-rose-500/15 text-rose-700'
+                          : 'bg-primary text-primary-foreground'
                     }`}
                   >
-                    {m.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                    {m.role === 'user' ? (
+                      <User className="h-4 w-4" />
+                    ) : m.content.startsWith("I'm having trouble") || m.content.startsWith('Please enter') ? (
+                      <AlertCircle className="h-4 w-4" />
+                    ) : (
+                      <Bot className="h-4 w-4" />
+                    )}
                   </span>
                   <div
                     className={`max-w-[78%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                       m.role === 'user'
                         ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                        : 'bg-secondary text-secondary-foreground rounded-tl-sm'
+                        : m.content.startsWith("I'm having trouble") || m.content.startsWith('Please enter')
+                          ? 'bg-rose-500/10 text-rose-900 rounded-tl-sm'
+                          : 'bg-secondary text-secondary-foreground rounded-tl-sm'
                     }`}
                   >
-                    <p className="whitespace-pre-wrap">{m.content}</p>
+                    <p className="whitespace-pre-wrap break-words">{m.content}</p>
                   </div>
                 </div>
               ))}
@@ -187,7 +279,7 @@ export function AiChatWidget() {
                 </div>
               )}
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Input */}
           <form onSubmit={onSubmit} className="border-t p-3 bg-card">
@@ -204,7 +296,7 @@ export function AiChatWidget() {
                 placeholder="Ask about hotels, lakes, things to do…"
                 className="min-h-[44px] max-h-32 resize-none text-sm"
                 rows={1}
-                disabled={sending}
+                aria-label="Message"
               />
               <Button
                 type="submit"

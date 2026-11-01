@@ -31,7 +31,7 @@ Your role:
 - Be friendly, concise, and practical. Use short paragraphs and bullet points where useful.
 - Base your answers ONLY on the verified platform data provided below. If you don't have enough information, say so honestly and suggest the user contact the Bishoftu City Culture & Tourism Office at +251 22 111 0101 or info@bishoftu.gov.et.
 - Do not invent hotels, prices, phone numbers, or events that are not in the data.
-- Keep answers short — usually 2-5 sentences, or a short bullet list.
+- Keep answers short — usually 2-5 sentences, or a short bullet list of at most 6 items.
 - If the user asks in Afaan Oromoo or Amharic, respond in the same language.
 
 About Bishoftu (use this context):
@@ -64,39 +64,75 @@ interface ChatMessage {
   content: string
 }
 
+export const maxDuration = 30 // allow up to 30s for the AI reply (Vercel/serverless friendly)
+
 export async function POST(req: NextRequest) {
+  // 1. Parse the body safely — handle invalid JSON without throwing
+  let body: unknown
   try {
-    const body = await req.json()
-    const messages: ChatMessage[] = Array.isArray(body?.messages) ? body.messages : []
-    const userMessage = messages.findLast?.((m) => m.role === 'user') ? messages.filter((m) => m.role === 'user').pop() : messages.filter((m) => m.role === 'user').pop()
+    body = await req.json()
+  } catch {
+    return NextResponse.json(
+      { error: 'Invalid JSON body.' },
+      { status: 400 }
+    )
+  }
 
-    if (!userMessage || !userMessage.content?.trim()) {
-      return NextResponse.json({ error: 'No user message provided.' }, { status: 400 })
-    }
+  // 2. Validate the messages array
+  const messages: ChatMessage[] =
+    Array.isArray((body as { messages?: unknown })?.messages)
+      ? ((body as { messages: ChatMessage[] }).messages)
+      : []
 
+  // 3. Take the LAST user message as the current prompt.
+  //    (findLast is available in Node 18+/modern browsers; fall back to filter().pop().)
+  const userMessages = messages.filter((m) => m && m.role === 'user' && typeof m.content === 'string')
+  const userMessage = userMessages.length > 0 ? userMessages[userMessages.length - 1] : null
+
+  if (!userMessage || !userMessage.content.trim()) {
+    return NextResponse.json(
+      { error: 'No user message provided.' },
+      { status: 400 }
+    )
+  }
+
+  // 4. Build the conversation history EXCLUDING the last user message (we append it separately).
+  //    Keep only the last 6 messages to stay within token limits, and strip out any empty content.
+  const history = messages
+    .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+    .slice(-7, -1) // drop the last user message; keep up to 6 prior turns
+
+  try {
     const systemPrompt = await buildSystemPrompt()
 
     const zai = await ZAI.create()
     const completion = await zai.chat.completions.create({
       messages: [
         { role: 'system', content: systemPrompt },
-        ...messages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
+        ...history.map((m) => ({ role: m.role, content: m.content })),
         { role: 'user', content: userMessage.content },
       ],
       thinking: { type: 'disabled' },
       temperature: 0.4,
-      max_tokens: 800,
+      // Generous token budget so replies are not cut off mid-sentence.
+      max_tokens: 1500,
     })
 
-    const reply = completion.choices[0]?.message?.content ?? 'Sorry, I could not generate a response. Please try again.'
+    const reply =
+      completion?.choices?.[0]?.message?.content?.trim() ||
+      "I'm sorry, I couldn't generate a response just now. Could you rephrase your question?"
 
     return NextResponse.json({ reply })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     console.error('[chat] error:', msg)
-    return NextResponse.json(
-      { reply: `I'm sorry — I had trouble responding just now. Please try again, or contact the Bishoftu Tourism Office at +251 22 111 0101. (Error: ${msg})` },
-      { status: 200 }
-    )
+    // Return 200 with a friendly user-facing message so the chat keeps working,
+    // but include a clear `error` flag the client can detect if needed.
+    return NextResponse.json({
+      reply:
+        "I'm having trouble responding right now — please try again in a moment. " +
+        'If the problem persists, contact the Bishoftu Tourism Office at +251 22 111 0101.',
+      error: true,
+    })
   }
 }
