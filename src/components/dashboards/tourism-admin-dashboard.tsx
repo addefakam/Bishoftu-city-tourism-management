@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type Dispatch, type SetStateAction } from 'react'
 import { Building2, Hotel as HotelIcon, Users, BedDouble, TrendingUp, Shield, User, MapPin, Star } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -11,8 +11,9 @@ import { store } from '@/lib/data'
 import { updateHotel } from '@/lib/hotel-store'
 import { getAllUsers, type User as AuthUser } from '@/lib/auth'
 import { GmsConnectionSettings } from '@/components/gms-connection-settings'
-import { Globe, ExternalLink } from 'lucide-react'
-import type { Hotel } from '@/lib/data'
+import { Globe, ExternalLink, Loader2, Image as ImageIcon } from 'lucide-react'
+import { compressToDataUrl } from '@/lib/image-utils'
+import type { Hotel } from '@/lib/types'
 
 const ROLE_BADGE_STYLES: Record<string, string> = {
   tourism_admin: 'bg-primary/10 text-primary border-primary/20',
@@ -21,11 +22,25 @@ const ROLE_BADGE_STYLES: Record<string, string> = {
   guest: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20',
 }
 
+// Show a short-lived inline status next to the row the admin just edited.
+function flash(
+  setter: Dispatch<SetStateAction<string | null>>,
+  id: string
+) {
+  setter(id)
+  window.setTimeout(() => setter((cur) => (cur === id ? null : cur)), 2500)
+}
+
 export function TourismAdminDashboard() {
   const [hotels, setHotels] = useState<Hotel[]>([])
   const [users, setUsers] = useState<AuthUser[]>([])
 
   const [websiteOverrides, setWebsiteOverrides] = useState<Record<string, string>>({})
+  const [uploadingHotelId, setUploadingHotelId] = useState<string | null>(null)
+  const [savedHotelId, setSavedHotelId] = useState<string | null>(null)
+  const [uploadErrorHotelId, setUploadErrorHotelId] = useState<string | null>(null)
+  const [websiteSavedHotelId, setWebsiteSavedHotelId] = useState<string | null>(null)
+  const [websiteErrorHotelId, setWebsiteErrorHotelId] = useState<string | null>(null)
 
   useEffect(() => {
     // Fetch hotels from /api/hotels (uses GMS live data when configured)
@@ -48,6 +63,35 @@ export function TourismAdminDashboard() {
       })
       .catch(() => {})
   }, [])
+
+  // Upload a card image for a hotel (same endpoint tourists use on /hotels):
+  // compress in the browser, persist server-side, update the row thumbnail.
+  async function handleCardImageUpload(hotelId: string, file: File | undefined) {
+    if (!file) return
+    setUploadingHotelId(hotelId)
+    setUploadErrorHotelId(null)
+    try {
+      const dataUrl = await compressToDataUrl(file)
+      const res = await fetch(`/api/hotels/${hotelId}/photo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataUrl }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || `Upload failed (${res.status})`)
+      }
+      setHotels((prev) =>
+        prev.map((x) => (x.id === hotelId ? { ...x, touristPhotoUrl: dataUrl } : x))
+      )
+      flash(setSavedHotelId, hotelId)
+    } catch (e) {
+      setUploadErrorHotelId(hotelId)
+      console.error(e)
+    } finally {
+      setUploadingHotelId(null)
+    }
+  }
 
   const totalRooms = hotels.reduce((s, h) => s + h.totalRooms, 0)
   const occupiedRooms = hotels.reduce((s, h) => s + h.occupiedRooms, 0)
@@ -256,9 +300,12 @@ export function TourismAdminDashboard() {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Globe className="h-5 w-5 text-primary" />
-            Hotel Website URLs
+            Hotel Website Links &amp; Card Images
           </CardTitle>
-          <CardDescription>Add hotel website links — saved permanently to server</CardDescription>
+          <CardDescription>
+            Add website links and upload card images per hotel — saved permanently to server.
+            The image appears on the hotel card above the hotel name.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -297,9 +344,9 @@ export function TourismAdminDashboard() {
                         if (o.website) newMap[hid] = o.website
                       }
                       setWebsiteOverrides(newMap)
-                      toast({ title: 'Website saved', description: `${h.name}: ${url || 'removed'}` })
+                      flash(setWebsiteSavedHotelId, h.id)
                     } else {
-                      toast({ title: 'Failed to save', description: 'Try again' })
+                      flash(setWebsiteErrorHotelId, h.id)
                     }
                   }}
                   className="flex-1 max-w-xs rounded-md border border-input bg-background px-3 py-1.5 text-sm"
@@ -314,6 +361,61 @@ export function TourismAdminDashboard() {
                     Test <ExternalLink className="h-3 w-3" />
                   </a>
                 )}
+                {websiteSavedHotelId === h.id && (
+                  <span className="text-xs text-emerald-600 whitespace-nowrap">Link saved ✓</span>
+                )}
+                {websiteErrorHotelId === h.id && (
+                  <span className="text-xs text-destructive whitespace-nowrap">Save failed</span>
+                )}
+                {/* Card image: current thumbnail + upload control */}
+                <div className="flex items-center gap-2">
+                  {(h.touristPhotoUrl ?? h.imageUrl) ? (
+                    <img
+                      src={h.touristPhotoUrl ?? h.imageUrl ?? undefined}
+                      alt={`Current card image for ${h.name}`}
+                      className="h-10 w-14 rounded-md border object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-10 w-14 items-center justify-center rounded-md border bg-muted text-muted-foreground">
+                      <ImageIcon className="h-4 w-4" />
+                    </div>
+                  )}
+                  <label
+                    className={`flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-input bg-background px-2.5 text-xs font-medium transition-colors ${
+                      uploadingHotelId === h.id ? 'pointer-events-none opacity-60' : 'hover:bg-accent'
+                    }`}
+                    title="Upload a card image for this hotel — shown on the hotel card above the hotel name"
+                  >
+                    {uploadingHotelId === h.id ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Uploading…
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon className="h-3.5 w-3.5" />
+                        Upload image
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingHotelId === h.id}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        e.target.value = ''
+                        void handleCardImageUpload(h.id, file)
+                      }}
+                    />
+                  </label>
+                  {uploadErrorHotelId === h.id && (
+                    <span className="text-xs text-destructive whitespace-nowrap">Upload failed</span>
+                  )}
+                  {savedHotelId === h.id && (
+                    <span className="text-xs text-emerald-600 whitespace-nowrap">Saved ✓</span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
