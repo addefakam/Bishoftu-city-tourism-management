@@ -52,6 +52,7 @@ export default function AllHotelsPage() {
   const [page, setPage] = useState(1)
   const [uploadingId, setUploadingId] = useState<string | null>(null)
   const [uploadErrorId, setUploadErrorId] = useState<string | null>(null)
+  const [uploadErrorMsg, setUploadErrorMsg] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -99,6 +100,7 @@ export default function AllHotelsPage() {
     if (!file) return
     setUploadingId(hotelId)
     setUploadErrorId(null)
+    setUploadErrorMsg(null)
     try {
       const dataUrl = await compressToDataUrl(file)
       const res = await fetch(`/api/hotels/${hotelId}/photo`, {
@@ -115,6 +117,7 @@ export default function AllHotelsPage() {
       )
     } catch (e) {
       setUploadErrorId(hotelId)
+      setUploadErrorMsg(e instanceof Error ? e.message : 'Upload failed — please try again')
       console.error(e)
     } finally {
       setUploadingId(null)
@@ -235,7 +238,7 @@ export default function AllHotelsPage() {
                     </label>
                     {uploadFailed && (
                       <p className="absolute bottom-12 right-3 rounded-md bg-destructive px-2 py-1 text-[11px] font-medium text-white shadow-sm">
-                        Upload failed — please try again
+                        {uploadErrorMsg ?? 'Upload failed — please try again'}
                       </p>
                     )}
                   </div>

@@ -39,6 +39,7 @@ export function TourismAdminDashboard() {
   const [uploadingHotelId, setUploadingHotelId] = useState<string | null>(null)
   const [savedHotelId, setSavedHotelId] = useState<string | null>(null)
   const [uploadErrorHotelId, setUploadErrorHotelId] = useState<string | null>(null)
+  const [uploadErrorMsg, setUploadErrorMsg] = useState<string | null>(null)
   const [websiteSavedHotelId, setWebsiteSavedHotelId] = useState<string | null>(null)
   const [websiteErrorHotelId, setWebsiteErrorHotelId] = useState<string | null>(null)
 
@@ -70,6 +71,7 @@ export function TourismAdminDashboard() {
     if (!file) return
     setUploadingHotelId(hotelId)
     setUploadErrorHotelId(null)
+    setUploadErrorMsg(null)
     try {
       const dataUrl = await compressToDataUrl(file)
       const res = await fetch(`/api/hotels/${hotelId}/photo`, {
@@ -87,6 +89,7 @@ export function TourismAdminDashboard() {
       flash(setSavedHotelId, hotelId)
     } catch (e) {
       setUploadErrorHotelId(hotelId)
+      setUploadErrorMsg(e instanceof Error ? e.message : 'Upload failed')
       console.error(e)
     } finally {
       setUploadingHotelId(null)
@@ -410,7 +413,7 @@ export function TourismAdminDashboard() {
                     />
                   </label>
                   {uploadErrorHotelId === h.id && (
-                    <span className="text-xs text-destructive whitespace-nowrap">Upload failed</span>
+                    <span className="text-xs text-destructive whitespace-nowrap">{uploadErrorMsg ?? 'Upload failed'}</span>
                   )}
                   {savedHotelId === h.id && (
                     <span className="text-xs text-emerald-600 whitespace-nowrap">Saved ✓</span>
