@@ -34,6 +34,16 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid hotel id' }, { status: 400 })
     }
 
+    // The Prisma client is generated from schema.prisma at install/build
+    // time. If the running server was built before TouristPhoto existed,
+    // the delegate is undefined — tell the operator exactly how to fix it.
+    if (!db.touristPhoto) {
+      return NextResponse.json(
+        { error: 'Failed to save photo: the server\'s Prisma client is out of date (TouristPhoto model missing) — run "npx prisma generate" and restart the server, or redeploy after a fresh install' },
+        { status: 500 }
+      )
+    }
+
     const body = await req.json().catch(() => null)
     const dataUrl = body?.dataUrl
     if (typeof dataUrl !== 'string' || !DATA_URL_RE.test(dataUrl)) {

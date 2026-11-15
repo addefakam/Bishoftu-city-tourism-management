@@ -34,6 +34,12 @@ export async function GET() {
  */
 async function attachTouristPhotos(hotels: Hotel[]): Promise<Hotel[]> {
   try {
+    if (!db.touristPhoto) {
+      // Stale generated Prisma client (predates the TouristPhoto model):
+      // photos are optional, so serve the hotels and log how to fix it.
+      console.error('[hotels] Prisma client is missing the TouristPhoto delegate — run "npx prisma generate" and restart the server')
+      return hotels
+    }
     const photos = await db.touristPhoto.findMany({
       select: { hotelId: true, dataUrl: true },
     })
