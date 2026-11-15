@@ -8,7 +8,6 @@ import { Progress } from '@/components/ui/progress'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { store } from '@/lib/data'
-import { getMergedHotels } from '@/lib/hotel-store'
 import { getAllUsers, type User as AuthUser } from '@/lib/auth'
 import { GmsConnectionSettings } from '@/components/gms-connection-settings'
 import type { Hotel } from '@/lib/data'
@@ -25,7 +24,11 @@ export function TourismAdminDashboard() {
   const [users, setUsers] = useState<AuthUser[]>([])
 
   useEffect(() => {
-    setHotels(getMergedHotels())
+    // Fetch hotels from /api/hotels (uses GMS live data when configured)
+    fetch('/api/hotels')
+      .then((r) => r.json())
+      .then((data) => setHotels(data.hotels || []))
+      .catch(() => setHotels([]))
     setUsers(getAllUsers())
   }, [])
 
