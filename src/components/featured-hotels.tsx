@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { mergeLocalUpdates } from '@/lib/hotel-store'
 import type { Hotel } from '@/lib/types'
 
 function Stars({ rating }: { rating: number }) {
@@ -30,10 +31,12 @@ export function FeaturedHotelsSection() {
     fetch('/api/hotels')
       .then((r) => r.json())
       .then((data) => {
+        // Merge localStorage overrides (website URLs set by tourism admin)
+        // on top of the API data (from GMS)
+        const merged = mergeLocalUpdates(data.hotels || [])
         // Prefer featured hotels, then 5-star, then 4-star — show up to 6
-        const list: Hotel[] = data.hotels
-        const featured = list.filter((h) => h.featured)
-        const others = list.filter((h) => !h.featured)
+        const featured = merged.filter((h) => h.featured)
+        const others = merged.filter((h) => !h.featured)
         setHotels([...featured, ...others].slice(0, 6))
       })
       .catch((e) => console.error(e))

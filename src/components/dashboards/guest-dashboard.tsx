@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { store } from '@/lib/data'
-import { getMergedNews } from '@/lib/hotel-store'
+import { getMergedNews, mergeLocalUpdates } from '@/lib/hotel-store'
 import { useAuth } from '@/lib/auth'
 import type { Hotel, NewsPost } from '@/lib/data'
 
@@ -65,9 +65,10 @@ export function GuestDashboard() {
   useEffect(() => {
     // Fetch hotels from /api/hotels (uses GMS live data when configured,
     // falls back to static data when GMS is not configured)
+    // Then merge localStorage overrides (website URLs set by tourism admin)
     fetch('/api/hotels')
       .then((r) => r.json())
-      .then((data) => setHotels(data.hotels || []))
+      .then((data) => setHotels(mergeLocalUpdates(data.hotels || [])))
       .catch(() => setHotels([]))
     setNews(getMergedNews().slice(0, 4))
     setFavorites(loadFavorites())

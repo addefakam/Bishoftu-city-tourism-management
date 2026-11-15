@@ -52,6 +52,30 @@ export function getMergedHotels(): Hotel[] {
   return base.map((h) => (updates[h.id] ? { ...h, ...updates[h.id] } : h))
 }
 
+/**
+ * Merge localStorage hotel updates (website, imageUrl, etc.) on top of
+ * hotels fetched from the API (GMS data). This is used by client-side
+ * components that fetch from /api/hotels but need to apply the tourism
+ * admin's local overrides (website URLs, etc.).
+ */
+export function mergeLocalUpdates(hotels: Hotel[]): Hotel[] {
+  const updates = loadHotelUpdates()
+  return hotels.map((h) => {
+    const update = updates[h.id]
+    if (!update) return h
+    return {
+      ...h,
+      ...update,
+      // Only override fields that are actually set in the update
+      website: update.website !== undefined ? update.website : h.website,
+      imageUrl: update.imageUrl !== undefined ? update.imageUrl : h.imageUrl,
+      phone: update.phone !== undefined ? update.phone : h.phone,
+      email: update.email !== undefined ? update.email : h.email,
+      description: update.description !== undefined ? update.description : h.description,
+    }
+  })
+}
+
 export function getMergedHotelById(id: string): Hotel | undefined {
   return getMergedHotels().find((h) => h.id === id)
 }
