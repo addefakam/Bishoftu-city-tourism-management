@@ -120,7 +120,7 @@ export function CityOverviewSection() {
                         {i + 1}
                       </span>
                       <Link
-                        href="#hotels"
+                        href={`/hotel/${h.id}`}
                         className="truncate text-sm font-medium hover:text-primary transition-colors"
                         title={h.name}
                       >
@@ -224,7 +224,7 @@ export function CityOverviewSection() {
 
         <div className="mt-6 text-center">
           <Button asChild variant="outline" className="gap-2">
-            <Link href="#hotels">
+            <Link href="/hotels">
               View all {stats.registeredHotels} hotels <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>

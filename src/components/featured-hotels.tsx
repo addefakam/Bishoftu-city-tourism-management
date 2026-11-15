@@ -55,7 +55,7 @@ export function FeaturedHotelsSection() {
             </p>
           </div>
           <Button asChild variant="outline" className="gap-2 shrink-0">
-            <Link href="#hotels">
+            <Link href="/hotels">
               View All Hotels <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
