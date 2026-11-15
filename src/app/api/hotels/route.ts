@@ -56,6 +56,9 @@ async function getHotelsFromGms() {
     const prices = rooms.map(r => r.pricePerNight).filter(Boolean)
     const minPrice = prices.length > 0 ? Math.min(...prices) : null
 
+    // Merge TMS-local overrides (website, imageUrl set by tourism admin)
+    const localOverride = getLocalOverride(p.id)
+
     return {
       id: p.id,
       name: p.name || 'Unknown',
@@ -67,14 +70,26 @@ async function getHotelsFromGms() {
       pricePerNight: minPrice,
       totalRooms,
       occupiedRooms,
-      imageUrl: null,
+      imageUrl: localOverride.imageUrl || null,
       phone: p.phone || null,
       email: null,
+      website: localOverride.website || null,
       featured: totalRooms > 0,
     }
   })
 
   return NextResponse.json({ hotels, source: 'gms' })
+}
+
+/**
+ * Get TMS-local overrides for a hotel (website, image, etc.)
+ * These are set by the tourism office admin and stored server-side.
+ * In a production system, this would read from a database.
+ * For now, returns empty (no overrides) — the tourism admin sets
+ * these via the client-side hotel-store which merges in the browser.
+ */
+function getLocalOverride(_hotelId: string): { website?: string; imageUrl?: string } {
+  return {}
 }
 
 /**

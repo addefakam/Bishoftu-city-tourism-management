@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   Star, MapPin, Phone, BedDouble, Users, ArrowLeft,
-  CheckCircle2, XCircle, DollarSign, Building2, Loader2, Calendar
+  CheckCircle2, XCircle, DollarSign, Building2, Loader2, Calendar, Globe, ExternalLink
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -35,6 +35,7 @@ interface HotelDetail {
   subCity: string
   address: string
   phone: string | null
+  website: string | null
   pricePerNight: number | null
   totalRooms: number
   occupiedRooms: number
@@ -209,17 +210,40 @@ export default function HotelDetailPage() {
                 {hotel.phone}
               </a>
             )}
+            {hotel.website && (
+              <a
+                href={hotel.website.startsWith('http') ? hotel.website : `https://${hotel.website}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-primary hover:underline"
+              >
+                <Globe className="h-4 w-4 text-primary" />
+                Visit Website
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <MapPin className="h-4 w-4" />
               {hotel.address}, {hotel.subCity}
             </div>
-            <Button className="w-full gap-2" asChild>
-              {hotel.phone ? (
-                <a href={`tel:${hotel.phone}`}><Phone className="h-4 w-4" /> Call to Book</a>
-              ) : (
-                <span>Contact hotel directly</span>
+            <div className="flex flex-col gap-2 pt-2">
+              {hotel.phone && (
+                <Button className="w-full gap-2" asChild>
+                  <a href={`tel:${hotel.phone}`}><Phone className="h-4 w-4" /> Call to Book</a>
+                </Button>
               )}
-            </Button>
+              {hotel.website && (
+                <Button variant="outline" className="w-full gap-2" asChild>
+                  <a
+                    href={hotel.website.startsWith('http') ? hotel.website : `https://${hotel.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Globe className="h-4 w-4" /> Visit Website <ExternalLink className="h-3 w-3" />
+                  </a>
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

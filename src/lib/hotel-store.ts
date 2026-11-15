@@ -13,6 +13,8 @@ interface HotelUpdate {
   phone?: string | null
   email?: string | null
   occupiedRooms?: number
+  website?: string | null
+  imageUrl?: string | null
 }
 
 function loadHotelUpdates(): Record<string, HotelUpdate> {

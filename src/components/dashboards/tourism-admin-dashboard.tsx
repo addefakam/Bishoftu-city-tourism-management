@@ -8,8 +8,10 @@ import { Progress } from '@/components/ui/progress'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { store } from '@/lib/data'
+import { updateHotel } from '@/lib/hotel-store'
 import { getAllUsers, type User as AuthUser } from '@/lib/auth'
 import { GmsConnectionSettings } from '@/components/gms-connection-settings'
+import { Globe, ExternalLink } from 'lucide-react'
 import type { Hotel } from '@/lib/data'
 
 const ROLE_BADGE_STYLES: Record<string, string> = {
@@ -230,6 +232,52 @@ export function TourismAdminDashboard() {
                 ))}
               </TableBody>
             </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Hotel Website Management */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Globe className="h-5 w-5 text-primary" />
+            Hotel Website URLs
+          </CardTitle>
+          <CardDescription>Add hotel website links for tourists to visit</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {hotels.map((h) => (
+              <div key={h.id} className="flex items-center gap-3 rounded-lg border p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{h.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{h.subCity}</p>
+                </div>
+                <input
+                  type="url"
+                  placeholder="https://hotel-website.com"
+                  defaultValue={h.website || ''}
+                  onBlur={(e) => {
+                    const url = e.target.value.trim()
+                    const result = updateHotel(h.id, { website: url || null })
+                    if (result.ok) {
+                      toast({ title: 'Website updated', description: `${h.name}: ${url || 'removed'}` })
+                    }
+                  }}
+                  className="flex-1 max-w-xs rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                />
+                {h.website && (
+                  <a
+                    href={h.website.startsWith('http') ? h.website : `https://${h.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline text-xs flex items-center gap-1"
+                  >
+                    Test <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
