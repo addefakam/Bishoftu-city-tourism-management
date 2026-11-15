@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { store } from '@/lib/data'
 import { getMergedHotels } from '@/lib/hotel-store'
 import { getAllUsers, type User as AuthUser } from '@/lib/auth'
+import { GmsConnectionSettings } from '@/components/gms-connection-settings'
 import type { Hotel } from '@/lib/data'
 
 const ROLE_BADGE_STYLES: Record<string, string> = {
@@ -229,6 +230,9 @@ export function TourismAdminDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* GMS Integration Settings */}
+      <GmsConnectionSettings />
     </div>
   )
 }
