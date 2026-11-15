@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Star, MapPin, Phone, ArrowRight, BedDouble } from 'lucide-react'
+import { Star, MapPin, Phone, ArrowRight, BedDouble, Globe } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
@@ -109,12 +109,25 @@ export function FeaturedHotelsSection() {
                       <p className="text-sm text-muted-foreground">Contact hotel for rates</p>
                     )}
                   </div>
-                  <Button size="sm" variant="outline" className="gap-1.5" asChild>
-                    <Link href={`/hotel/${h.id}`}>
-                      {h.phone ? <Phone className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                      View Hotel
-                    </Link>
-                  </Button>
+                  {h.website ? (
+                    <Button size="sm" variant="outline" className="gap-1.5" asChild>
+                      <a
+                        href={h.website.startsWith('http') ? h.website : `https://${h.website}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Globe className="h-3.5 w-3.5" />
+                        Visit Website
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" className="gap-1.5" asChild>
+                      <Link href={`/hotel/${h.id}`}>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                        View Hotel
+                      </Link>
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
             ))}
