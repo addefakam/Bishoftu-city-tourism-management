@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { store } from '@/lib/data'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   const hotels = store.hotels.findMany()
   const attractions = store.attractions.count()
@@ -11,7 +13,6 @@ export async function GET() {
   const availableRooms = totalRooms - occupiedRooms
   const cityOccupancy = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 1000) / 10 : 0
 
-  // Top performing hotels (by occupancy rate)
   const topHotels = hotels
     .map((h) => ({
       ...h,
@@ -21,18 +22,12 @@ export async function GET() {
     .sort((a, b) => b.occupancy - a.occupancy)
     .slice(0, 5)
 
-  // Hotels by type
   const typeMap = new Map<string, number>()
-  for (const h of hotels) {
-    typeMap.set(h.type, (typeMap.get(h.type) ?? 0) + 1)
-  }
+  for (const h of hotels) typeMap.set(h.type, (typeMap.get(h.type) ?? 0) + 1)
   const byType = Array.from(typeMap.entries()).map(([type, count]) => ({ type, count }))
 
-  // Hotels by sub-city
   const subCityMap = new Map<string, number>()
-  for (const h of hotels) {
-    subCityMap.set(h.subCity, (subCityMap.get(h.subCity) ?? 0) + 1)
-  }
+  for (const h of hotels) subCityMap.set(h.subCity, (subCityMap.get(h.subCity) ?? 0) + 1)
   const bySubCity = Array.from(subCityMap.entries())
     .map(([subCity, count]) => ({ subCity, count }))
     .sort((a, b) => b.count - a.count)
@@ -44,7 +39,7 @@ export async function GET() {
     currentGuests: occupiedRooms,
     cityOccupancy,
     attractions,
-    businesses: businesses + hotels.length, // total registered tourism & hospitality businesses
+    businesses: businesses + hotels.length,
     topHotels,
     byType,
     bySubCity,
