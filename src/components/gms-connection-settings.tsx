@@ -1,69 +1,79 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { testGmsConnection, isGmsConfigured, getGmsApiUrl, getApiKeyPrefix } from "@/lib/gms-client";
 
 /**
  * GMS Connection Settings Component
  * =================================
  *
- * Copy this file into the TMS project (e.g. src/components/GmsConnectionSettings.tsx).
- * Place it in the Tourism Office admin interface.
- *
- * It shows:
- *   - Connection status (connected/disconnected)
- *   - GMS API URL + API key (masked)
- *   - Test connection button
- *   - Integration name + authorized scopes
- *
- * The actual API URL + key are set via environment variables:
- *   GMS_API_URL=https://guesthousewithpolicemodule-ghjo-k4f2dpooj.vercel.app
- *   GMS_API_KEY=ghms_live_xxxxxxxxxxxxxxxx
- *
- * Set these in Vercel → Project Settings → Environment Variables.
+ * Shows the GMS integration status in the TMS tourism admin dashboard.
+ * Fetches status from /api/gms-status (server-side) because process.env
+ * is NOT available in the browser.
  */
 
+interface GmsStatus {
+  configured: boolean;
+  apiUrl: string;
+  apiKeyPrefix: string;
+  connected: boolean;
+  integrationName?: string;
+  scopes?: string[];
+  error?: string;
+}
+
 export function GmsConnectionSettings() {
+  const [status, setStatus] = useState<GmsStatus | null>(null);
+  const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState(false);
-  const [result, setResult] = useState<{
-    connected: boolean;
-    integrationName?: string;
-    scopes?: string[];
-    error?: string;
-  } | null>(null);
 
-  const configured = isGmsConfigured();
-
-  useEffect(() => {
-    // Auto-test on mount if configured
-    if (configured) {
-      handleTest();
-    }
-  }, [configured]);
-
-  const handleTest = async () => {
+  const fetchStatus = async () => {
     setTesting(true);
-    setResult(null);
     try {
-      const res = await testGmsConnection();
-      setResult(res);
+      const res = await fetch("/api/gms-status", { cache: "no-store" });
+      const data = await res.json();
+      setStatus(data);
     } catch (err) {
-      setResult({
+      setStatus({
+        configured: false,
+        apiUrl: "",
+        apiKeyPrefix: "",
         connected: false,
-        error: err instanceof Error ? err.message : "Test failed",
+        error: "Failed to check status",
       });
     } finally {
+      setLoading(false);
       setTesting(false);
     }
   };
+
+  useEffect(() => {
+    fetchStatus();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 animate-pulse rounded-xl bg-slate-100" />
+          <div className="space-y-1">
+            <div className="h-4 w-32 animate-pulse rounded bg-slate-100" />
+            <div className="h-3 w-48 animate-pulse rounded bg-slate-100" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const connected = status?.connected;
+  const configured = status?.configured;
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-center gap-3">
         <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-          result?.connected ? "bg-emerald-100" : configured ? "bg-amber-100" : "bg-slate-100"
+          connected ? "bg-emerald-100" : configured ? "bg-amber-100" : "bg-slate-100"
         }`}>
-          {result?.connected ? "✅" : configured ? "⚠️" : "🔌"}
+          {connected ? "✅" : configured ? "⚠️" : "🔌"}
         </div>
         <div>
           <h3 className="text-base font-bold text-slate-900">GMS Integration</h3>
@@ -75,56 +85,58 @@ export function GmsConnectionSettings() {
 
       {/* Status badge */}
       <div className="mb-4">
-        {result?.connected ? (
+        {connected ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             Connected
           </span>
         ) : configured ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
-            <span className="h-2 w-2 rounded-full bg-amber-500" />
-            Configured — testing...
-          </span>
-        ) : (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">
             <span className="h-2 w-2 rounded-full bg-red-500" />
+            Configured — connection failed
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+            <span className="h-2 w-2 rounded-full bg-slate-400" />
             Not configured
           </span>
         )}
       </div>
 
       {/* Configuration details */}
-      <div className="space-y-2 rounded-xl bg-slate-50 p-3">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-500">GMS API URL:</span>
-          <code className="rounded bg-white px-2 py-0.5 font-mono text-slate-700">
-            {configured ? getGmsApiUrl() : "Not set"}
-          </code>
-        </div>
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-500">API Key:</span>
-          <code className="rounded bg-white px-2 py-0.5 font-mono text-slate-700">
-            {configured ? getApiKeyPrefix() : "Not set"}
-          </code>
-        </div>
-        {result?.integrationName && (
+      {configured && (
+        <div className="space-y-2 rounded-xl bg-slate-50 p-3">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500">Integration:</span>
-            <span className="font-medium text-slate-700">{result.integrationName}</span>
+            <span className="text-slate-500">GMS API URL:</span>
+            <code className="rounded bg-white px-2 py-0.5 font-mono text-slate-700 break-all">
+              {status?.apiUrl}
+            </code>
           </div>
-        )}
-        {result?.scopes && (
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500">Authorized data:</span>
-            <span className="font-medium text-slate-700">{result.scopes.join(", ")}</span>
+            <span className="text-slate-500">API Key:</span>
+            <code className="rounded bg-white px-2 py-0.5 font-mono text-slate-700">
+              {status?.apiKeyPrefix}
+            </code>
           </div>
-        )}
-      </div>
+          {status?.integrationName && (
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">Integration:</span>
+              <span className="font-medium text-slate-700">{status.integrationName}</span>
+            </div>
+          )}
+          {status?.scopes && status.scopes.length > 0 && (
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-500">Authorized data:</span>
+              <span className="font-medium text-slate-700">{status.scopes.join(", ")}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Error message */}
-      {result?.error && (
+      {status?.error && (
         <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 border border-red-200">
-          <strong>Connection error:</strong> {result.error}
+          <strong>Error:</strong> {status.error}
         </div>
       )}
 
@@ -149,15 +161,13 @@ GMS_API_KEY=ghms_live_xxxxxxxxxxxxxxxx
       )}
 
       {/* Test button */}
-      {configured && (
-        <button
-          onClick={handleTest}
-          disabled={testing}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
-        >
-          {testing ? "Testing..." : "Test Connection"}
-        </button>
-      )}
+      <button
+        onClick={fetchStatus}
+        disabled={testing}
+        className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+      >
+        {testing ? "Testing..." : "Test Connection"}
+      </button>
     </div>
   );
 }
