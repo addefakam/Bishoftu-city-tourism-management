@@ -45,6 +45,9 @@ async function getHotelsFromGms() {
     roomsByProvider.get(pid)!.push(room)
   }
 
+  // Fetch TMS-local overrides (website URLs set by tourism admin)
+  const overrides = await fetchHotelOverrides()
+
   // Map GMS providers to TMS Hotel format
   const hotels: Hotel[] = providersRes.data.map((p) => {
     const rooms = roomsByProvider.get(p.id) || []
@@ -57,7 +60,7 @@ async function getHotelsFromGms() {
     const minPrice = prices.length > 0 ? Math.min(...prices) : null
 
     // Merge TMS-local overrides (website, imageUrl set by tourism admin)
-    const localOverride = getLocalOverride(p.id)
+    const localOverride = overrides[p.id] || {}
 
     return {
       id: p.id,
@@ -83,13 +86,29 @@ async function getHotelsFromGms() {
 
 /**
  * Get TMS-local overrides for a hotel (website, image, etc.)
- * These are set by the tourism office admin and stored server-side.
- * In a production system, this would read from a database.
- * For now, returns empty (no overrides) — the tourism admin sets
- * these via the client-side hotel-store which merges in the browser.
+ * Fetches from the GMS /api/v1/hotel-overrides endpoint (server-side persistence).
+ * The tourism admin sets these via the admin dashboard.
  */
-function getLocalOverride(_hotelId: string): { website?: string; imageUrl?: string } {
-  return {}
+async function fetchHotelOverrides(): Promise<Record<string, { website?: string; imageUrl?: string }>> {
+  const { apiUrl, apiKey } = getConfig()
+  if (!apiUrl || !apiKey) return {}
+  try {
+    const res = await fetch(`${apiUrl}/api/v1/hotel-overrides`, {
+      headers: { 'x-api-key': apiKey },
+      cache: 'no-store',
+    })
+    const data = await res.json()
+    return data.data || {}
+  } catch {
+    return {}
+  }
+}
+
+function getConfig() {
+  return {
+    apiUrl: process.env.GMS_API_URL || "",
+    apiKey: process.env.GMS_API_KEY || "",
+  };
 }
 
 /**

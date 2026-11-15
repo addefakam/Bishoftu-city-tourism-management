@@ -25,6 +25,8 @@ export function TourismAdminDashboard() {
   const [hotels, setHotels] = useState<Hotel[]>([])
   const [users, setUsers] = useState<AuthUser[]>([])
 
+  const [websiteOverrides, setWebsiteOverrides] = useState<Record<string, string>>({})
+
   useEffect(() => {
     // Fetch hotels from /api/hotels (uses GMS live data when configured)
     fetch('/api/hotels')
@@ -32,6 +34,19 @@ export function TourismAdminDashboard() {
       .then((data) => setHotels(data.hotels || []))
       .catch(() => setHotels([]))
     setUsers(getAllUsers())
+
+    // Fetch saved website overrides from server
+    fetch('/api/hotel-overrides')
+      .then((r) => r.json())
+      .then((data) => {
+        const overrides: Record<string, string> = {}
+        for (const [hotelId, override] of Object.entries(data.overrides || {})) {
+          const o = override as any
+          if (o.website) overrides[hotelId] = o.website
+        }
+        setWebsiteOverrides(overrides)
+      })
+      .catch(() => {})
   }, [])
 
   const totalRooms = hotels.reduce((s, h) => s + h.totalRooms, 0)
@@ -243,7 +258,7 @@ export function TourismAdminDashboard() {
             <Globe className="h-5 w-5 text-primary" />
             Hotel Website URLs
           </CardTitle>
-          <CardDescription>Add hotel website links for tourists to visit</CardDescription>
+          <CardDescription>Add hotel website links — saved permanently to server</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -256,19 +271,42 @@ export function TourismAdminDashboard() {
                 <input
                   type="url"
                   placeholder="https://hotel-website.com"
-                  defaultValue={h.website || ''}
-                  onBlur={(e) => {
+                  defaultValue={websiteOverrides[h.id] || ''}
+                  onBlur={async (e) => {
                     const url = e.target.value.trim()
-                    const result = updateHotel(h.id, { website: url || null })
-                    if (result.ok) {
-                      toast({ title: 'Website updated', description: `${h.name}: ${url || 'removed'}` })
+                    // Build the full overrides object with this hotel's website
+                    const newOverrides: Record<string, any> = {}
+                    for (const [hid, wurl] of Object.entries(websiteOverrides)) {
+                      newOverrides[hid] = { website: wurl }
+                    }
+                    if (url) {
+                      newOverrides[h.id] = { website: url }
+                    } else {
+                      delete newOverrides[h.id]
+                    }
+                    // Save to server (persists in GMS database)
+                    const res = await fetch('/api/hotel-overrides', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(newOverrides),
+                    })
+                    if (res.ok) {
+                      const newMap: Record<string, string> = {}
+                      for (const [hid, ov] of Object.entries(newOverrides)) {
+                        const o = ov as any
+                        if (o.website) newMap[hid] = o.website
+                      }
+                      setWebsiteOverrides(newMap)
+                      toast({ title: 'Website saved', description: `${h.name}: ${url || 'removed'}` })
+                    } else {
+                      toast({ title: 'Failed to save', description: 'Try again' })
                     }
                   }}
                   className="flex-1 max-w-xs rounded-md border border-input bg-background px-3 py-1.5 text-sm"
                 />
-                {h.website && (
+                {websiteOverrides[h.id] && (
                   <a
-                    href={h.website.startsWith('http') ? h.website : `https://${h.website}`}
+                    href={websiteOverrides[h.id].startsWith('http') ? websiteOverrides[h.id] : `https://${websiteOverrides[h.id]}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline text-xs flex items-center gap-1"
