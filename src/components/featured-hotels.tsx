@@ -109,9 +109,11 @@ export function FeaturedHotelsSection() {
                       <p className="text-sm text-muted-foreground">Contact hotel for rates</p>
                     )}
                   </div>
-                  <Button size="sm" variant="outline" className="gap-1.5">
-                    {h.phone ? <Phone className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                    View Hotel
+                  <Button size="sm" variant="outline" className="gap-1.5" asChild>
+                    <Link href={`/hotel/${h.id}`}>
+                      {h.phone ? <Phone className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
+                      View Hotel
+                    </Link>
                   </Button>
                 </CardFooter>
               </Card>
