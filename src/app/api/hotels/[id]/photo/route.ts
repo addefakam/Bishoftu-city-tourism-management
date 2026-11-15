@@ -54,13 +54,21 @@ export async function POST(
 
     return NextResponse.json({ success: true, touristPhotoUrl: saved.dataUrl })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('[hotel-photo] upload failed:', msg)
-    // On serverless hosts (e.g. Vercel) the bundled SQLite file is read-only,
-    // so writes fail — surface that clearly instead of a generic error.
-    const hint = /readonly|read-only/i.test(msg)
-      ? ' — photo storage is read-only on this deployment'
-      : ''
-    return NextResponse.json({ error: `Failed to save photo${hint}` }, { status: 500 })
+    const raw = err instanceof Error ? err.message : String(err)
+    console.error('[hotel-photo] upload failed:', raw)
+    // Surface the real cause so the UI can show it instead of a generic
+    // "Failed to save photo". Known Prisma/SQLite failure modes get a
+    // short actionable hint; anything else is shown verbatim.
+    let detail = raw
+    if (/readonly|read-only|eaccess|eacces|cantopen|permission/i.test(raw)) {
+      detail = 'the photo database is read-only here — SQLite cannot persist writes on serverless hosts (deploy with an external database or run locally)'
+    } else if (/P2021|does not exist in the current database/i.test(raw)) {
+      detail = 'the TouristPhoto table is missing — run "npx prisma db push" against this DATABASE_URL'
+    } else if (/P1003|database.*does not exist|unable to open/i.test(raw)) {
+      detail = 'the database file is missing — check DATABASE_URL in .env'
+    } else if (/P2002/i.test(raw)) {
+      detail = 'a photo row for this hotel already exists (unique constraint)'
+    }
+    return NextResponse.json({ error: `Failed to save photo: ${detail}` }, { status: 500 })
   }
 }
