@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { store } from '@/lib/data'
 import { getMergedHotels } from '@/lib/hotel-store'
 import { getAllUsers, type User as AuthUser } from '@/lib/auth'
@@ -95,7 +94,7 @@ export function TourismAdminDashboard() {
             <CardDescription>Live occupancy across all registered hotels</CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="max-h-[420px]">
+            <div className="max-h-[420px] overflow-y-auto overflow-x-hidden rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -134,7 +133,7 @@ export function TourismAdminDashboard() {
                   })}
                 </TableBody>
               </Table>
-            </ScrollArea>
+            </div>
           </CardContent>
         </Card>
 
@@ -195,7 +194,7 @@ export function TourismAdminDashboard() {
           <CardDescription>All accounts on the platform</CardDescription>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="max-h-[360px]">
+          <div className="max-h-[360px] overflow-y-auto overflow-x-hidden rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -227,7 +226,7 @@ export function TourismAdminDashboard() {
                 ))}
               </TableBody>
             </Table>
-          </ScrollArea>
+          </div>
         </CardContent>
       </Card>
     </div>

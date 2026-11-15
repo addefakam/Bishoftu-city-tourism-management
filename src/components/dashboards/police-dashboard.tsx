@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { store } from '@/lib/data'
 import { getMergedHotels } from '@/lib/hotel-store'
 import type { Hotel } from '@/lib/data'
@@ -186,7 +185,7 @@ export function PoliceDashboard() {
             </div>
 
             {/* Table */}
-            <ScrollArea className="max-h-[400px]">
+            <div className="max-h-[400px] overflow-y-auto overflow-x-hidden rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -223,7 +222,7 @@ export function PoliceDashboard() {
                   )}
                 </TableBody>
               </Table>
-            </ScrollArea>
+            </div>
             <p className="text-xs text-muted-foreground">Showing {filteredGuests.length} of {guests.length} records. Registry data is sampled for demo purposes.</p>
           </CardContent>
         </Card>
