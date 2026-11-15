@@ -27,6 +27,17 @@ model Hotel {
   createdAt      DateTime @default(now())
 }
 
+// Photos uploaded by tourists from the hotel cards on the /hotels page.
+// Stored as base64 data URLs (compressed client-side to ≤1280px JPEG).
+// One current photo per hotel — a new upload replaces the previous one.
+model TouristPhoto {
+  id        String   @id @default(cuid())
+  hotelId   String   @unique
+  dataUrl   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Attraction {
   id          String   @id @default(cuid())
   name        String

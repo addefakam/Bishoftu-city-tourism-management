@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { store } from '@/lib/data'
 import { getMergedHotels } from '@/lib/hotel-store'
 import { isGmsConfigured, getProviders, getRooms } from '@/lib/gms-client'
+import { db } from '@/lib/db'
 import type { Hotel } from '@/lib/data'
 
 export const dynamic = 'force-dynamic'
@@ -21,7 +22,30 @@ export async function GET() {
 
   // Fallback: static data (when GMS is not configured or fetch failed)
   const hotels = typeof window === 'undefined' ? store.hotels.findMany() : getMergedHotels()
-  return NextResponse.json({ hotels })
+  return NextResponse.json({ hotels: await attachTouristPhotos(hotels) })
+}
+
+/**
+ * Attaches tourist-uploaded photos to the hotels. Tourists upload photos
+ * from the hotel cards on the /hotels page; they are stored in the TMS
+ * SQLite database (TouristPhoto table) and returned as `touristPhotoUrl`,
+ * which the cards render above the hotel name. Photos are an enhancement:
+ * if the database is unavailable, hotels are still served.
+ */
+async function attachTouristPhotos(hotels: Hotel[]): Promise<Hotel[]> {
+  try {
+    const photos = await db.touristPhoto.findMany({
+      select: { hotelId: true, dataUrl: true },
+    })
+    if (photos.length === 0) return hotels
+    const byHotelId = new Map(photos.map((p) => [p.hotelId, p.dataUrl]))
+    return hotels.map((h) =>
+      byHotelId.has(h.id) ? { ...h, touristPhotoUrl: byHotelId.get(h.id)! } : h
+    )
+  } catch (err) {
+    console.error('[hotels] failed to load tourist photos:', err instanceof Error ? err.message : err)
+    return hotels
+  }
 }
 
 /**
@@ -81,7 +105,9 @@ async function getHotelsFromGms() {
     }
   })
 
-  return NextResponse.json({ hotels, source: 'gms' })
+  const hotelsWithPhotos = await attachTouristPhotos(hotels)
+
+  return NextResponse.json({ hotels: hotelsWithPhotos, source: 'gms' })
 }
 
 /**

@@ -70,8 +70,8 @@ export function FeaturedHotelsSection() {
             {hotels.map((h) => (
               <Card key={h.id} className="overflow-hidden flex flex-col hover:shadow-lg transition-shadow">
                 <div className="relative aspect-[16/10] bg-muted">
-                  {h.imageUrl ? (
-                    <img src={h.imageUrl} alt={h.name} className="h-full w-full object-cover" loading="lazy" />
+                  {(h.touristPhotoUrl ?? h.imageUrl) ? (
+                    <img src={h.touristPhotoUrl ?? h.imageUrl ?? undefined} alt={h.name} className="h-full w-full object-cover" loading="lazy" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-muted-foreground">
                       <BedDouble className="h-10 w-10" />

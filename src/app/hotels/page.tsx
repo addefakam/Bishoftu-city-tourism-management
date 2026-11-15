@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Star, MapPin, ArrowRight, ArrowLeft, BedDouble, Globe, SearchX } from 'lucide-react'
+import { Star, MapPin, ArrowRight, ArrowLeft, BedDouble, Globe, SearchX, Camera, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
@@ -15,6 +15,28 @@ import { mergeLocalUpdates } from '@/lib/hotel-store'
 import type { Hotel } from '@/lib/types'
 
 const PAGE_SIZE = 9
+const MAX_FILE_BYTES = 15 * 1024 * 1024
+
+// Compress the chosen image in the browser (max 1280px, JPEG) so the
+// upload stays small enough to store as a base64 data URL in SQLite.
+async function compressToDataUrl(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) throw new Error('Please choose an image file')
+  if (file.size > MAX_FILE_BYTES) throw new Error('That image is too large — please choose one under 15 MB')
+  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+  const scale = Math.min(1, 1280 / Math.max(bitmap.width, bitmap.height))
+  const w = Math.max(1, Math.round(bitmap.width * scale))
+  const h = Math.max(1, Math.round(bitmap.height * scale))
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Your browser could not process the image')
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, w, h)
+  ctx.drawImage(bitmap, 0, 0, w, h)
+  bitmap.close()
+  return canvas.toDataURL('image/jpeg', 0.82)
+}
 
 function Stars({ rating }: { rating: number }) {
   return (
@@ -49,6 +71,8 @@ export default function AllHotelsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+  const [uploadingId, setUploadingId] = useState<string | null>(null)
+  const [uploadErrorId, setUploadErrorId] = useState<string | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -88,6 +112,34 @@ export default function AllHotelsPage() {
     // Keep the URL shareable without triggering a Next.js navigation.
     window.history.replaceState(null, '', clamped === 1 ? '/hotels' : `/hotels?page=${clamped}`)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Tourist photo upload: compress in the browser, persist server-side
+  // (POST /api/hotels/[id]/photo), then show it on the card immediately.
+  async function handlePhotoUpload(hotelId: string, file: File | undefined) {
+    if (!file) return
+    setUploadingId(hotelId)
+    setUploadErrorId(null)
+    try {
+      const dataUrl = await compressToDataUrl(file)
+      const res = await fetch(`/api/hotels/${hotelId}/photo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataUrl }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || `Upload failed (${res.status})`)
+      }
+      setHotels((prev) =>
+        prev.map((x) => (x.id === hotelId ? { ...x, touristPhotoUrl: dataUrl } : x))
+      )
+    } catch (e) {
+      setUploadErrorId(hotelId)
+      console.error(e)
+    } finally {
+      setUploadingId(null)
+    }
   }
 
   return (
@@ -146,11 +198,15 @@ export default function AllHotelsPage() {
         {!loading && !error && hotels.length > 0 && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {pageHotels.map((h) => (
+              {pageHotels.map((h) => {
+                const photo = h.touristPhotoUrl || h.imageUrl
+                const uploading = uploadingId === h.id
+                const uploadFailed = uploadErrorId === h.id
+                return (
                 <Card key={h.id} className="overflow-hidden flex flex-col hover:shadow-lg transition-shadow">
                   <div className="relative aspect-[16/10] bg-muted">
-                    {h.imageUrl ? (
-                      <img src={h.imageUrl} alt={h.name} className="h-full w-full object-cover" loading="lazy" />
+                    {photo ? (
+                      <img src={photo} alt={h.name} className="h-full w-full object-cover" loading="lazy" />
                     ) : (
                       <div className="flex h-full items-center justify-center text-muted-foreground">
                         <BedDouble className="h-10 w-10" />
@@ -165,6 +221,44 @@ export default function AllHotelsPage() {
                         {h.type}
                       </Badge>
                     </div>
+                    {/* Tourist photo upload — the chosen photo replaces the
+                        card image shown above the hotel name */}
+                    <label
+                      className={`absolute bottom-3 right-3 flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-3 text-xs font-medium shadow-sm transition-colors ${
+                        uploading
+                          ? 'pointer-events-none bg-white/80 text-muted-foreground'
+                          : 'bg-white/95 text-foreground hover:bg-white'
+                      }`}
+                      title="Add your own photo of this hotel"
+                    >
+                      {uploading ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Uploading…
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="h-3.5 w-3.5" />
+                          Add your photo
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={uploading}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          e.target.value = ''
+                          void handlePhotoUpload(h.id, file)
+                        }}
+                      />
+                    </label>
+                    {uploadFailed && (
+                      <p className="absolute bottom-12 right-3 rounded-md bg-destructive px-2 py-1 text-[11px] font-medium text-white shadow-sm">
+                        Upload failed — please try again
+                      </p>
+                    )}
                   </div>
                   <CardContent className="flex-1 p-5">
                     <h2 className="text-lg font-semibold leading-snug line-clamp-1">
@@ -214,7 +308,8 @@ export default function AllHotelsPage() {
                     )}
                   </CardFooter>
                 </Card>
-              ))}
+                )
+              })}
             </div>
 
             {/* Pagination */}

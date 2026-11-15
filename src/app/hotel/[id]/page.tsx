@@ -41,6 +41,7 @@ interface HotelDetail {
   occupiedRooms: number
   description: string
   imageUrl: string | null
+  touristPhotoUrl?: string | null
 }
 
 export default function HotelDetailPage() {
@@ -121,8 +122,8 @@ export default function HotelDetailPage() {
 
       {/* Hero section */}
       <div className="relative aspect-[21/9] rounded-2xl overflow-hidden bg-muted">
-        {hotel.imageUrl ? (
-          <img src={hotel.imageUrl} alt={hotel.name} className="h-full w-full object-cover" />
+        {(hotel.touristPhotoUrl ?? hotel.imageUrl) ? (
+          <img src={hotel.touristPhotoUrl ?? hotel.imageUrl ?? undefined} alt={hotel.name} className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full items-center justify-center bg-gradient-to-br from-sky-100 to-cyan-100">
             <Building2 className="h-16 w-16 text-sky-400" />

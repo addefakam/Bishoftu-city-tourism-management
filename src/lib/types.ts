@@ -16,6 +16,8 @@ export interface Hotel {
   email: string | null
   website: string | null
   featured: boolean
+  // Photo uploaded by a tourist from the hotel card (shown above the name)
+  touristPhotoUrl?: string | null
 }
 
 export interface Attraction {
