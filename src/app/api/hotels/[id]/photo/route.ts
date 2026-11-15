@@ -60,8 +60,8 @@ export async function POST(
     let detail = raw
     if (/readonly|read-only|eaccess|eacces|cantopen|permission/i.test(raw)) {
       detail = hasBlobStorage()
-        ? 'SQLite rejected a write even though the Blob token is visible — this should not happen; open /api/photo-storage-status and report its output'
-        : 'this host cannot persist SQLite writes and the BLOB_READ_WRITE_TOKEN is NOT visible to this deployment — open /api/photo-storage-status on this site to see what it actually has; then connect the Blob store to THIS project and redeploy, or add the token manually (Settings → Environment Variables)'
+        ? 'SQLite rejected a write even though Blob credentials are visible — this should not happen; open /api/photo-storage-status and report its output'
+        : 'this host cannot persist SQLite writes and no Blob credentials are visible to this deployment — open /api/photo-storage-status on this site to see what it actually has; then connect the Blob store to THIS project and redeploy, or add BLOB_READ_WRITE_TOKEN manually (Settings → Environment Variables)'
     } else if (/P2021|does not exist in the current database/i.test(raw)) {
       detail = 'the TouristPhoto table is missing — run "npx prisma db push" against this DATABASE_URL'
     } else if (/P1003|database.*does not exist|unable to open/i.test(raw)) {

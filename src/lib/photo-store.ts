@@ -4,16 +4,20 @@ import { db } from '@/lib/db'
 // Hotel photos (uploaded by tourists on /hotels and by the tourism admin
 // from the dashboard). Two storage backends:
 //
-// - Vercel Blob, when BLOB_READ_WRITE_TOKEN is set: the only way to
-//   persist on serverless hosts, where the deployment filesystem is
-//   read-only. Each photo is one blob object (photos/<hotelId>.jpg);
-//   list() doubles as the metadata index, so no separate mapping store.
+// - Vercel Blob, when Blob credentials are visible to the runtime: the
+//   only way to persist on serverless hosts, where the deployment
+//   filesystem is read-only. Each photo is one blob object
+//   (photos/<hotelId>.jpg); list() doubles as the metadata index, so no
+//   separate mapping store. Credentials come either from the classic
+//   BLOB_READ_WRITE_TOKEN or from a store connected to the project
+//   (BLOB_STORE_ID + Vercel OIDC, supported by @vercel/blob v2+).
 // - SQLite TouristPhoto table (default, local use): the compressed
 //   data URL is stored in the repo's own db/custom.db.
 
 const BLOB_PREFIX = 'photos/'
 
-export const hasBlobStorage = () => !!process.env.BLOB_READ_WRITE_TOKEN
+export const hasBlobStorage = () =>
+  !!process.env.BLOB_READ_WRITE_TOKEN || !!process.env.BLOB_STORE_ID
 
 /**
  * Persists one photo and returns the URL to render on the cards:
