@@ -60,7 +60,7 @@ async function getHotelsFromGms() {
       id: p.id,
       name: p.name || 'Unknown',
       description: p.type || 'Guesthouse',
-      starRating: 3, // GMS doesn't have star ratings — default to 3
+      starRating: inferStarRating(p.type, p.bedCount, rooms),
       type: mapGmsTypeToTmsType(p.type),
       subCity: p.subCity || 'Bishoftu',
       address: p.address || 'Bishoftu',
@@ -75,6 +75,37 @@ async function getHotelsFromGms() {
   })
 
   return NextResponse.json({ hotels, source: 'gms' })
+}
+
+/**
+ * Infers a star rating (1-5) from GMS provider data.
+ * GMS doesn't have explicit star ratings, so we estimate based on:
+ * - Provider type (RESORT > HOTEL > GUEST_HOUSE)
+ * - Bed count (larger = more likely higher-tier)
+ * - Room pricing (higher price = higher tier)
+ */
+function inferStarRating(type?: string, bedCount?: number, rooms?: any[]): number {
+  const t = (type || '').toUpperCase()
+  
+  // Base rating by type
+  let rating = 3
+  if (t.includes('RESORT')) rating = 5
+  else if (t.includes('HOTEL')) rating = 4
+  else if (t.includes('GUEST')) rating = 3
+  else if (t.includes('LODGE')) rating = 3
+
+  // Adjust by bed count (larger properties tend to be higher tier)
+  if (bedCount && bedCount >= 50) rating = Math.max(rating, 4)
+  if (bedCount && bedCount >= 100) rating = 5
+
+  // Adjust by average room price (higher price = higher tier)
+  if (rooms && rooms.length > 0) {
+    const avgPrice = rooms.reduce((s, r) => s + (r.pricePerNight || 0), 0) / rooms.length
+    if (avgPrice >= 2000) rating = Math.max(rating, 5)
+    else if (avgPrice >= 1000) rating = Math.max(rating, 4)
+  }
+
+  return Math.min(5, Math.max(1, rating))
 }
 
 function mapGmsTypeToTmsType(gmsType?: string): string {
