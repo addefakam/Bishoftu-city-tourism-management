@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { store } from '@/lib/data'
 import { getMergedHotels } from '@/lib/hotel-store'
 import { isGmsConfigured, getProviders, getRooms } from '@/lib/gms-client'
-import { db } from '@/lib/db'
+import { listPhotos } from '@/lib/photo-store'
 import type { Hotel } from '@/lib/data'
 
 export const dynamic = 'force-dynamic'
@@ -27,26 +27,19 @@ export async function GET() {
 
 /**
  * Attaches tourist-uploaded photos to the hotels. Tourists upload photos
- * from the hotel cards on the /hotels page; they are stored in the TMS
- * SQLite database (TouristPhoto table) and returned as `touristPhotoUrl`,
- * which the cards render above the hotel name. Photos are an enhancement:
- * if the database is unavailable, hotels are still served.
+ * from the hotel cards on the /hotels page; photos live in the store
+ * chosen by @/lib/photo-store (Vercel Blob on serverless hosts via
+ * BLOB_READ_WRITE_TOKEN, otherwise the TMS SQLite TouristPhoto table)
+ * and are returned as `touristPhotoUrl`, which the cards render above
+ * the hotel name. Photos are an enhancement: if the store is
+ * unavailable, hotels are still served.
  */
 async function attachTouristPhotos(hotels: Hotel[]): Promise<Hotel[]> {
   try {
-    if (!db.touristPhoto) {
-      // Stale generated Prisma client (predates the TouristPhoto model):
-      // photos are optional, so serve the hotels and log how to fix it.
-      console.error('[hotels] Prisma client is missing the TouristPhoto delegate — run "npx prisma generate" and restart the server')
-      return hotels
-    }
-    const photos = await db.touristPhoto.findMany({
-      select: { hotelId: true, dataUrl: true },
-    })
-    if (photos.length === 0) return hotels
-    const byHotelId = new Map(photos.map((p) => [p.hotelId, p.dataUrl]))
+    const photos = await listPhotos()
+    if (photos.size === 0) return hotels
     return hotels.map((h) =>
-      byHotelId.has(h.id) ? { ...h, touristPhotoUrl: byHotelId.get(h.id)! } : h
+      photos.has(h.id) ? { ...h, touristPhotoUrl: photos.get(h.id)! } : h
     )
   } catch (err) {
     console.error('[hotels] failed to load tourist photos:', err instanceof Error ? err.message : err)

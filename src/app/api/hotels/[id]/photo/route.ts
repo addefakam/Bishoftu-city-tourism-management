@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { savePhoto } from '@/lib/photo-store'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,8 +18,10 @@ const HOTEL_ID_RE = /^[\w-]{1,100}$/
  * Lets a tourist upload a photo of a hotel from the hotel card on the
  * /hotels page, and lets the tourism admin upload a card image from the
  * dashboard. The image is compressed in the browser and sent as a base64
- * data URL, then stored in the TMS SQLite database (TouristPhoto table)
- * so it survives reloads and logouts. /api/hotels returns it on the hotel
+ * data URL, then persisted by @/lib/photo-store: in Vercel Blob when
+ * BLOB_READ_WRITE_TOKEN is set (required on serverless hosts, where the
+ * filesystem is read-only), otherwise in the TMS SQLite database
+ * (TouristPhoto table) for local use. /api/hotels returns it on the hotel
  * as `touristPhotoUrl`, which the cards display above the hotel name.
  *
  * Body: { "dataUrl": "data:image/jpeg;base64,..." }
@@ -34,16 +36,6 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid hotel id' }, { status: 400 })
     }
 
-    // The Prisma client is generated from schema.prisma at install/build
-    // time. If the running server was built before TouristPhoto existed,
-    // the delegate is undefined — tell the operator exactly how to fix it.
-    if (!db.touristPhoto) {
-      return NextResponse.json(
-        { error: 'Failed to save photo: the server\'s Prisma client is out of date (TouristPhoto model missing) — run "npx prisma generate" and restart the server, or redeploy after a fresh install' },
-        { status: 500 }
-      )
-    }
-
     const body = await req.json().catch(() => null)
     const dataUrl = body?.dataUrl
     if (typeof dataUrl !== 'string' || !DATA_URL_RE.test(dataUrl)) {
@@ -56,22 +48,19 @@ export async function POST(
       return NextResponse.json({ error: 'Image is too large.' }, { status: 413 })
     }
 
-    const saved = await db.touristPhoto.upsert({
-      where: { hotelId: id },
-      update: { dataUrl },
-      create: { hotelId: id, dataUrl },
-    })
+    const touristPhotoUrl = await savePhoto(id, dataUrl)
 
-    return NextResponse.json({ success: true, touristPhotoUrl: saved.dataUrl })
+    return NextResponse.json({ success: true, touristPhotoUrl })
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err)
     console.error('[hotel-photo] upload failed:', raw)
     // Surface the real cause so the UI can show it instead of a generic
-    // "Failed to save photo". Known Prisma/SQLite failure modes get a
-    // short actionable hint; anything else is shown verbatim.
+    // "Failed to save photo". Known failure modes get a short actionable
+    // hint; anything else is shown verbatim.
     let detail = raw
     if (/readonly|read-only|eaccess|eacces|cantopen|permission/i.test(raw)) {
-      detail = 'the photo database is read-only here — SQLite cannot persist writes on serverless hosts (deploy with an external database or run locally)'
+      detail =
+        'this host cannot persist SQLite writes — set BLOB_READ_WRITE_TOKEN (Vercel → Storage → Create Blob store → connect this project → redeploy) to store photos in Vercel Blob, or run the app locally'
     } else if (/P2021|does not exist in the current database/i.test(raw)) {
       detail = 'the TouristPhoto table is missing — run "npx prisma db push" against this DATABASE_URL'
     } else if (/P1003|database.*does not exist|unable to open/i.test(raw)) {
