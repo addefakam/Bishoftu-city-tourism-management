@@ -16,9 +16,18 @@
  */
 
 // ── Configuration ────────────────────────────────────────────────────
+// IMPORTANT: Read env vars INSIDE functions (at call time), NOT at module
+// load time. Next.js caches module-level constants — if the module loads
+// during build (when env vars might not be set), the cached values would
+// be empty strings forever. Reading inside functions ensures fresh values
+// on every request.
 
-const GMS_API_URL = process.env.GMS_API_URL || "";
-const GMS_API_KEY = process.env.GMS_API_KEY || "";
+function getConfig() {
+  return {
+    apiUrl: process.env.GMS_API_URL || "",
+    apiKey: process.env.GMS_API_KEY || "",
+  };
+}
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -94,11 +103,12 @@ export interface GmsPaginatedResponse<T> {
 // ── Internal fetch helper ────────────────────────────────────────────
 
 async function gmsFetch<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
-  if (!GMS_API_URL || !GMS_API_KEY) {
+  const { apiUrl, apiKey } = getConfig();
+  if (!apiUrl || !apiKey) {
     throw new Error("GMS not configured. Set GMS_API_URL and GMS_API_KEY environment variables.");
   }
 
-  const url = new URL(`${GMS_API_URL}/api/v1${endpoint}`);
+  const url = new URL(`${apiUrl}/api/v1${endpoint}`);
   if (params) {
     for (const [key, value] of Object.entries(params)) {
       if (value) url.searchParams.set(key, value);
@@ -107,7 +117,7 @@ async function gmsFetch<T>(endpoint: string, params?: Record<string, string>): P
 
   const res = await fetch(url.toString(), {
     headers: {
-      "x-api-key": GMS_API_KEY,
+      "x-api-key": apiKey,
       "Accept": "application/json",
     },
     cache: "no-store",
@@ -280,19 +290,21 @@ export async function getGuests(opts?: {
  * Check if the GMS is configured (env vars set).
  */
 export function isGmsConfigured(): boolean {
-  return !!GMS_API_URL && !!GMS_API_KEY;
+  const { apiUrl, apiKey } = getConfig();
+  return !!apiUrl && !!apiKey;
 }
 
 /**
  * Get the GMS API URL (for display in admin settings).
  */
 export function getGmsApiUrl(): string {
-  return GMS_API_URL;
+  return getConfig().apiUrl;
 }
 
 /**
  * Get the API key prefix (for display — first 12 chars only).
  */
 export function getApiKeyPrefix(): string {
-  return GMS_API_KEY.slice(0, 12) + "••••••••";
+  const { apiKey } = getConfig();
+  return apiKey ? apiKey.slice(0, 12) + "••••••••" : "";
 }
