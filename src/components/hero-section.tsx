@@ -99,7 +99,7 @@ export function HeroSection() {
           {/* CTAs */}
           <div className="mt-6 flex flex-col sm:flex-row gap-3">
             <Button asChild size="lg" variant="secondary" className="gap-2">
-              <Link href="#virtual">
+              <Link href="/virtual-bishoftu">
                 <Waves className="h-4 w-4" /> Explore Virtual Bishoftu
               </Link>
             </Button>

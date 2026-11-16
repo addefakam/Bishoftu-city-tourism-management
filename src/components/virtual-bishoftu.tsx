@@ -45,7 +45,7 @@ export function VirtualBishoftuSection() {
                   <p className="text-xl font-semibold">Lake Hora — Irecha Festival Ground</p>
                 </div>
                 <Button asChild size="sm" variant="secondary" className="gap-1.5 shrink-0">
-                  <Link href="#attractions">
+                  <Link href="/virtual-bishoftu">
                     360° Tour <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
@@ -87,7 +87,7 @@ export function VirtualBishoftuSection() {
               </div>
 
               <Button asChild size="lg" className="mt-8 gap-2 w-full sm:w-auto">
-                <Link href="#attractions">
+                <Link href="/virtual-bishoftu">
                   Explore Virtual Bishoftu <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
