@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie,
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
 } from 'recharts'
 import type { CityStats } from '@/lib/types'
 
@@ -62,7 +62,7 @@ export function CityOverviewSection() {
             availableRooms: h.totalRooms - h.occupiedRooms,
           }))
           .sort((a: any, b: any) => b.occupancy - a.occupancy)
-          .slice(0, 5)
+          .slice(0, 8)
 
         const typeMap = new Map<string, number>()
         for (const h of hotels) typeMap.set(h.type, (typeMap.get(h.type) ?? 0) + 1)
@@ -141,10 +141,10 @@ export function CityOverviewSection() {
           />
         </div>
 
-        {/* Top hotels + breakdown */}
-        <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Top hotels + type breakdown — balanced 2-column layout */}
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Top performing hotels */}
-          <Card className="lg:col-span-2">
+          <Card>
             <CardHeader>
               <CardTitle className="text-lg">Top Performing Hotels</CardTitle>
               <CardDescription>Ranked by current occupancy rate</CardDescription>
@@ -190,7 +190,7 @@ export function CityOverviewSection() {
               <CardDescription>Distribution of accommodation types</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-48">
+              <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -198,7 +198,7 @@ export function CityOverviewSection() {
                       dataKey="count"
                       nameKey="type"
                       cx="50%" cy="50%"
-                      innerRadius={45} outerRadius={75}
+                      innerRadius={60} outerRadius={95}
                       paddingAngle={2}
                     >
                       {stats.byType.map((entry) => (
@@ -226,41 +226,6 @@ export function CityOverviewSection() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Sub-city bar chart */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="text-lg">Hotels by Sub-City</CardTitle>
-            <CardDescription>Geographic distribution across Bishoftu&apos;s sub-cities</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.bySubCity} margin={{ top: 10, right: 10, bottom: 10, left: -10 }}>
-                  <XAxis
-                    dataKey="subCity"
-                    tick={{ fontSize: 11 }}
-                    interval={0}
-                    angle={-15}
-                    textAnchor="end"
-                    height={50}
-                  />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip
-                    cursor={{ fill: 'oklch(0.96 0.01 95)' }}
-                    contentStyle={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12 }}
-                    formatter={(value: number) => [`${value} hotel${value !== 1 ? 's' : ''}`, 'Hotels']}
-                  />
-                  <Bar dataKey="count" name="Hotels" radius={[6, 6, 0, 0]}>
-                    {stats.bySubCity.map((_, i) => (
-                      <Cell key={i} fill="oklch(0.51 0.12 178)" />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
 
         <div className="mt-6 text-center">
           <Button asChild variant="outline" className="gap-2">
