@@ -64,12 +64,15 @@ export async function saveSiteImage(key: string, dataUrl: string): Promise<strin
  */
 export async function deleteSiteImage(key: string): Promise<void> {
   if (hasBlobStorage()) {
+    // Blob mode: delete from Blob only (SQLite is read-only on serverless)
     try {
       await del(`site-images/${key}.jpg`)
     } catch { /* ignore — may not exist */ }
+    return
   }
+  // SQLite mode: delete from the database
   if (db.siteImage) {
-    await db.siteImage.deleteMany({ where: { key } })
+    await db.siteImage.deleteMany({ where: { key } }).catch(() => {/* ignore read-only errors */})
   }
 }
 
