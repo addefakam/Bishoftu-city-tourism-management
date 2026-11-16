@@ -11,6 +11,7 @@ import { store } from '@/lib/data'
 import { updateHotel } from '@/lib/hotel-store'
 import { getAllUsers, type User as AuthUser } from '@/lib/auth'
 import { GmsConnectionSettings } from '@/components/gms-connection-settings'
+import { SiteImageManager } from '@/components/site-image-manager'
 import { Globe, ExternalLink, Loader2, Image as ImageIcon } from 'lucide-react'
 import { compressToDataUrl } from '@/lib/image-utils'
 import type { Hotel } from '@/lib/types'
@@ -427,6 +428,9 @@ export function TourismAdminDashboard() {
 
       {/* GMS Integration Settings */}
       <GmsConnectionSettings />
+
+      {/* Site Image Management — replace hardcoded photos */}
+      <SiteImageManager />
     </div>
   )
 }

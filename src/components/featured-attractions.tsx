@@ -32,6 +32,7 @@ const CATEGORY_STYLES: Record<string, string> = {
 export function FeaturedAttractionsSection() {
   const [attractions, setAttractions] = useState<Attraction[]>([])
   const [loading, setLoading] = useState(true)
+  const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({})
 
   useEffect(() => {
     fetch('/api/attractions')
@@ -44,7 +45,20 @@ export function FeaturedAttractionsSection() {
       })
       .catch((e) => console.error(e))
       .finally(() => setLoading(false))
+
+    // Fetch configurable image overrides (admin-uploaded attraction images)
+    fetch('/api/site-images')
+      .then((r) => r.json())
+      .then((data) => setImageOverrides(data.images ?? {}))
+      .catch(() => {/* use defaults */})
   }, [])
+
+  function attractionImage(a: Attraction): string | null {
+    // Override takes priority, then the attraction's own imageUrl
+    const override = imageOverrides[`attraction_${a.id}`]
+    if (override) return override
+    return a.imageUrl
+  }
 
   return (
     <section id="attractions" className="bg-muted/30 py-16 sm:py-20">
@@ -66,9 +80,9 @@ export function FeaturedAttractionsSection() {
             {attractions.map((a) => (
               <Card key={a.id} className="overflow-hidden group hover:shadow-lg transition-shadow">
                 <div className="relative aspect-[16/10] bg-muted overflow-hidden">
-                  {a.imageUrl && (
+                  {attractionImage(a) && (
                     <img
-                      src={a.imageUrl}
+                      src={attractionImage(a)!}
                       alt={a.name}
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       loading="lazy"

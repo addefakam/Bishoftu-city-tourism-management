@@ -24,6 +24,7 @@ function formatStat(value: number, suffix: string = ''): string {
 export function HeroSection() {
   const [stats, setStats] = useState<CityStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [heroImage, setHeroImage] = useState<string>('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80')
 
   useEffect(() => {
     fetch('/api/stats')
@@ -31,6 +32,14 @@ export function HeroSection() {
       .then((data) => setStats(data))
       .catch((e) => console.error('Failed to load stats:', e))
       .finally(() => setLoading(false))
+
+    // Fetch configurable hero background image
+    fetch('/api/site-images')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.images?.hero_background) setHeroImage(data.images.hero_background)
+      })
+      .catch(() => {/* use default */})
   }, [])
 
   const heroStats = stats
@@ -47,7 +56,7 @@ export function HeroSection() {
       {/* Background image + gradient overlay */}
       <div className="absolute inset-0 z-0">
         <img
-          src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80"
+          src={heroImage}
           alt="Crater lake at Bishoftu"
           className="h-full w-full object-cover"
         />

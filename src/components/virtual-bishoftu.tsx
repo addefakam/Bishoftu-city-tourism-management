@@ -1,9 +1,12 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Waves, Mountain, CalendarDays, ImageIcon, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+
+const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1400&q=80'
 
 const overviewStats = [
   { value: 9, label: 'Destinations' },
@@ -12,15 +15,26 @@ const overviewStats = [
 ]
 
 export function VirtualBishoftuSection() {
+  const [image, setImage] = useState<string>(DEFAULT_IMAGE)
+
+  useEffect(() => {
+    fetch('/api/site-images')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.images?.virtual_bishoftu) setImage(data.images.virtual_bishoftu)
+      })
+      .catch(() => {/* use default */})
+  }, [])
+
   return (
     <section id="virtual" className="py-16 sm:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <Card className="overflow-hidden border-0">
           <div className="grid grid-cols-1 lg:grid-cols-2">
-            {/* Image side */}
+            {/* Image side — configurable via /api/site-images */}
             <div className="relative min-h-[280px] lg:min-h-[420px]">
               <img
-                src="https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1400&q=80"
+                src={image}
                 alt="Lake Hora — Bishoftu"
                 className="absolute inset-0 h-full w-full object-cover"
               />

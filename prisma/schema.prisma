@@ -65,3 +65,16 @@ model Business {
   subCity   String
   createdAt DateTime @default(now())
 }
+
+// Configurable site images — lets the tourism admin replace hardcoded
+// photos (hero background, virtual Bishoftu, attraction cards, etc.)
+// with uploaded images. Stored as base64 data URLs in SQLite, or as
+// Vercel Blob URLs when BLOB storage is configured.
+model SiteImage {
+  id        String   @id @default(cuid())
+  key       String   @unique // e.g. "hero_background", "virtual_bishoftu", "attraction_<id>"
+  url       String   // data URL or blob URL
+  label     String   // human-readable label for admin UI
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
