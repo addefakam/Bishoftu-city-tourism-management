@@ -1,19 +1,47 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Waves, MapPin, Sparkles, Search, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 
-const heroStats = [
-  { value: '10', label: 'Registered Hotels' },
-  { value: '520', label: 'Total Rooms' },
-  { value: '245', label: 'Current Guests' },
-  { value: '47.1%', label: 'City Occupancy' },
-]
+interface CityStats {
+  registeredHotels: number
+  totalRooms: number
+  availableRooms: number
+  currentGuests: number
+  cityOccupancy: number
+  source?: string
+}
+
+function formatStat(value: number, suffix: string = ''): string {
+  return value.toLocaleString() + suffix
+}
 
 export function HeroSection() {
+  const [stats, setStats] = useState<CityStats | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/stats')
+      .then((r) => r.json())
+      .then((data) => setStats(data))
+      .catch((e) => console.error('Failed to load stats:', e))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const heroStats = stats
+    ? [
+        { value: formatStat(stats.registeredHotels), label: 'Registered Hotels' },
+        { value: formatStat(stats.totalRooms), label: 'Total Rooms' },
+        { value: formatStat(stats.currentGuests), label: 'Current Guests' },
+        { value: `${stats.cityOccupancy}%`, label: 'City Occupancy' },
+      ]
+    : []
+
   return (
     <section id="home" className="relative overflow-hidden bg-primary">
       {/* Background image + gradient overlay */}
@@ -79,15 +107,33 @@ export function HeroSection() {
           </div>
         </div>
 
-        {/* Stats strip */}
+        {/* Stats strip — live from /api/stats (GMS data) */}
         <div className="mt-14 grid grid-cols-2 lg:grid-cols-4 gap-px overflow-hidden rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md">
-          {heroStats.map((s) => (
-            <div key={s.label} className="px-5 py-6 text-center bg-white/5">
-              <p className="text-3xl sm:text-4xl font-bold text-white">{s.value}</p>
-              <p className="mt-1 text-xs sm:text-sm text-white/80">{s.label}</p>
-            </div>
-          ))}
+          {loading || !stats ? (
+            <>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="px-5 py-6 text-center bg-white/5">
+                  <Skeleton className="h-9 w-20 mx-auto bg-white/20" />
+                  <Skeleton className="h-3 w-28 mx-auto mt-2 bg-white/15" />
+                </div>
+              ))}
+            </>
+          ) : (
+            heroStats.map((s) => (
+              <div key={s.label} className="px-5 py-6 text-center bg-white/5">
+                <p className="text-3xl sm:text-4xl font-bold text-white tabular-nums">{s.value}</p>
+                <p className="mt-1 text-xs sm:text-sm text-white/80">{s.label}</p>
+              </div>
+            ))
+          )}
         </div>
+
+        {/* Data source attribution */}
+        {stats?.source === 'gms' && (
+          <p className="mt-3 text-center text-xs text-white/60">
+            Live data from Bishoftu GMS · refreshed on each visit
+          </p>
+        )}
       </div>
     </section>
   )
