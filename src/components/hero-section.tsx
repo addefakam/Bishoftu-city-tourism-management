@@ -60,8 +60,8 @@ export function HeroSection() {
           alt="Crater lake at Bishoftu"
           className="h-full w-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/93 via-primary/85 to-primary/95" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/75 via-primary/55 to-primary/80" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
       </div>
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 sm:py-28 lg:py-36">
