@@ -44,9 +44,49 @@ export function CityOverviewSection() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/stats')
+    // Fetch hotels from /api/hotels (same source as Featured Hotels section)
+    // and calculate stats from that data — ensures consistent numbers.
+    fetch('/api/hotels')
       .then((r) => r.json())
-      .then((data) => setStats(data))
+      .then((data) => {
+        const hotels = data.hotels || []
+        const totalRooms = hotels.reduce((s: number, h: any) => s + h.totalRooms, 0)
+        const occupiedRooms = hotels.reduce((s: number, h: any) => s + h.occupiedRooms, 0)
+        const availableRooms = totalRooms - occupiedRooms
+        const cityOccupancy = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 1000) / 10 : 0
+
+        const topHotels = hotels
+          .map((h: any) => ({
+            ...h,
+            occupancy: h.totalRooms > 0 ? Math.round((h.occupiedRooms / h.totalRooms) * 1000) / 10 : 0,
+            availableRooms: h.totalRooms - h.occupiedRooms,
+          }))
+          .sort((a: any, b: any) => b.occupancy - a.occupancy)
+          .slice(0, 5)
+
+        const typeMap = new Map<string, number>()
+        for (const h of hotels) typeMap.set(h.type, (typeMap.get(h.type) ?? 0) + 1)
+        const byType = Array.from(typeMap.entries()).map(([type, count]) => ({ type, count }))
+
+        const subCityMap = new Map<string, number>()
+        for (const h of hotels) subCityMap.set(h.subCity, (subCityMap.get(h.subCity) ?? 0) + 1)
+        const bySubCity = Array.from(subCityMap.entries())
+          .map(([subCity, count]) => ({ subCity, count }))
+          .sort((a, b) => b.count - a.count)
+
+        setStats({
+          registeredHotels: hotels.length,
+          totalRooms,
+          availableRooms,
+          currentGuests: occupiedRooms,
+          cityOccupancy,
+          topHotels,
+          byType,
+          bySubCity,
+          attractions: 0,
+          businesses: 0,
+        } as CityStats)
+      })
       .catch((e) => console.error(e))
       .finally(() => setLoading(false))
   }, [])
