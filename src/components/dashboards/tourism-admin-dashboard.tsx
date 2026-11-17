@@ -14,6 +14,7 @@ import { GmsConnectionSettings } from '@/components/gms-connection-settings'
 import { SiteImageManager } from '@/components/site-image-manager'
 import { Globe, ExternalLink, Loader2, Image as ImageIcon } from 'lucide-react'
 import { compressToDataUrl } from '@/lib/image-utils'
+import { useToast } from '@/hooks/use-toast'
 import type { Hotel } from '@/lib/types'
 
 const ROLE_BADGE_STYLES: Record<string, string> = {
@@ -498,7 +499,7 @@ function CarouselManager() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [newUrl, setNewUrl] = useState('')
-  const { toast } = useToastSafe()
+  const { toast } = useToast()
 
   useEffect(() => {
     fetch('/api/carousel-settings')
@@ -607,13 +608,4 @@ function CarouselManager() {
       </div>
     </div>
   )
-}
-
-// Safe toast hook (in case useToast isn't available)
-function useToastSafe() {
-  try {
-    return require('@/hooks/use-toast').useToast()
-  } catch {
-    return { toast: (_: any) => {} }
-  }
 }
