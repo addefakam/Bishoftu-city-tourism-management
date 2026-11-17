@@ -21,23 +21,34 @@ function formatStat(value: number, suffix: string = ''): string {
   return value.toLocaleString() + suffix
 }
 
-// Carousel images — Bishoftu crater lakes + city scenes
-const CAROUSEL_IMAGES = [
+// Default carousel images — used if API not configured
+const DEFAULT_IMAGES = [
   'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80',
   'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1920&q=80',
   'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1920&q=80',
-  'https://images.unsplash.com/photo-1465056836041-7f43ac27dcb5?auto=format&fit=crop&w=1920&q=80',
-  'https://images.unsplash.com/photo-1518569656558-1f25e69d93d7?auto=format&fit=crop&w=1920&q=80',
 ]
 
 export function HeroSection() {
   const [stats, setStats] = useState<CityStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [currentImage, setCurrentImage] = useState(0)
+  const [carouselImages, setCarouselImages] = useState<string[]>(DEFAULT_IMAGES)
+  const [interval, setIntervalSec] = useState(5)
   const touchStartX = useRef(0)
   const touchEndX = useRef(0)
 
   useEffect(() => {
+    // Fetch carousel settings (images + interval) from API
+    fetch('/api/carousel-settings')
+      .then((r) => r.json())
+      .then((data) => {
+        const settings = data.data
+        if (settings?.images?.length > 0) setCarouselImages(settings.images)
+        if (settings?.interval) setIntervalSec(settings.interval)
+      })
+      .catch(() => {})
+
+    // Fetch hotels for stats
     fetch('/api/hotels')
       .then((r) => r.json())
       .then((data) => {
@@ -57,16 +68,16 @@ export function HeroSection() {
       .finally(() => setLoading(false))
   }, [])
 
-  // Auto-advance carousel every 5 seconds
+  // Auto-advance carousel
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentImage((prev) => (prev + 1) % CAROUSEL_IMAGES.length)
-    }, 5000)
+      setCurrentImage((prev) => (prev + 1) % carouselImages.length)
+    }, interval * 1000)
     return () => clearInterval(timer)
-  }, [])
+  }, [carouselImages, interval])
 
   const goToSlide = (index: number) => {
-    setCurrentImage(((index % CAROUSEL_IMAGES.length) + CAROUSEL_IMAGES.length) % CAROUSEL_IMAGES.length)
+    setCurrentImage(((index % carouselImages.length) + carouselImages.length) % carouselImages.length)
   }
 
   const nextSlide = () => goToSlide(currentImage + 1)
@@ -107,7 +118,7 @@ export function HeroSection() {
     >
       {/* Image carousel — full bleed, no overlay cover */}
       <div className="absolute inset-0 z-0">
-        {CAROUSEL_IMAGES.map((img, i) => (
+        {carouselImages.map((img, i) => (
           <div
             key={i}
             className="absolute inset-0 transition-opacity duration-700 ease-in-out"
@@ -142,7 +153,7 @@ export function HeroSection() {
 
       {/* Carousel dots */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2">
-        {CAROUSEL_IMAGES.map((_, i) => (
+        {carouselImages.map((_, i) => (
           <button
             key={i}
             onClick={() => goToSlide(i)}

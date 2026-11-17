@@ -426,6 +426,20 @@ export function TourismAdminDashboard() {
         </CardContent>
       </Card>
 
+      {/* Hero Carousel Management */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <ImageIcon className="h-5 w-5 text-primary" />
+            Home Screen Carousel
+          </CardTitle>
+          <CardDescription>Manage hero images + slide timing — shown on the homepage</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CarouselManager />
+        </CardContent>
+      </Card>
+
       {/* GMS Integration Settings */}
       <GmsConnectionSettings />
 
@@ -433,4 +447,132 @@ export function TourismAdminDashboard() {
       <SiteImageManager />
     </div>
   )
+}
+
+// ── Hero Carousel Manager ────────────────────────────────────────────
+
+function CarouselManager() {
+  const [images, setImages] = useState<string[]>([])
+  const [interval, setIntervalSec] = useState(5)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [newUrl, setNewUrl] = useState('')
+  const { toast } = useToastSafe()
+
+  useEffect(() => {
+    fetch('/api/carousel-settings')
+      .then((r) => r.json())
+      .then((data) => {
+        const settings = data.data
+        setImages(settings?.images || [])
+        setIntervalSec(settings?.interval || 5)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const save = (newImages: string[], newInterval: number) => {
+    setSaving(true)
+    fetch('/api/carousel-settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ images: newImages, interval: newInterval }),
+    })
+      .then((r) => r.json())
+      .then(() => toast?.({ title: 'Carousel saved' }))
+      .catch(() => toast?.({ title: 'Failed to save' }))
+      .finally(() => setSaving(false))
+  }
+
+  const addImage = () => {
+    if (!newUrl.trim()) return
+    const updated = [...images, newUrl.trim()]
+    setImages(updated)
+    setNewUrl('')
+    save(updated, interval)
+  }
+
+  const removeImage = (index: number) => {
+    const updated = images.filter((_, i) => i !== index)
+    setImages(updated)
+    save(updated, interval)
+  }
+
+  const updateInterval = (val: number) => {
+    setIntervalSec(val)
+    save(images, val)
+  }
+
+  if (loading) return <div className="text-sm text-muted-foreground">Loading carousel settings...</div>
+
+  return (
+    <div className="space-y-4">
+      {/* Slide timing */}
+      <div className="flex items-center gap-3">
+        <Clock className="h-4 w-4 text-muted-foreground" />
+        <label className="text-sm font-medium">Slide interval:</label>
+        <select
+          value={interval}
+          onChange={(e) => updateInterval(Number(e.target.value))}
+          className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+        >
+          <option value={3}>3 seconds</option>
+          <option value={5}>5 seconds</option>
+          <option value={7}>7 seconds</option>
+          <option value={10}>10 seconds</option>
+        </select>
+        {saving && <span className="text-xs text-muted-foreground">Saving...</span>}
+      </div>
+
+      {/* Current images */}
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Carousel Images ({images.length})</p>
+        {images.map((url, i) => (
+          <div key={i} className="flex items-center gap-3 rounded-lg border p-2">
+            <div className="h-16 w-24 shrink-0 overflow-hidden rounded-md bg-muted">
+              <img src={url} alt={`Slide ${i + 1}`} className="h-full w-full object-cover" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium">Slide {i + 1}</p>
+              <p className="text-xs text-muted-foreground truncate">{url}</p>
+            </div>
+            <button
+              onClick={() => removeImage(i)}
+              className="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Add new image */}
+      <div className="flex items-center gap-2">
+        <input
+          type="url"
+          placeholder="https://example.com/image.jpg"
+          value={newUrl}
+          onChange={(e) => setNewUrl(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && addImage()}
+          className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+        <button
+          onClick={addImage}
+          disabled={!newUrl.trim()}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        >
+          <Plus className="h-4 w-4" /> Add
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Safe toast hook (in case useToast isn't available)
+function useToastSafe() {
+  try {
+    return require('@/hooks/use-toast').useToast()
+  } catch {
+    return { toast: (_: any) => {} }
+  }
 }
