@@ -37,6 +37,10 @@ export function TourismAdminDashboard() {
   const [users, setUsers] = useState<AuthUser[]>([])
 
   const [websiteOverrides, setWebsiteOverrides] = useState<Record<string, string>>({})
+  const [userPage, setUserPage] = useState(1)
+  const USER_PAGE_SIZE = 10
+  const userTotalPages = Math.ceil(users.length / USER_PAGE_SIZE)
+  const paginatedUsers = users.slice((userPage - 1) * USER_PAGE_SIZE, userPage * USER_PAGE_SIZE)
   const [uploadingHotelId, setUploadingHotelId] = useState<string | null>(null)
   const [savedHotelId, setSavedHotelId] = useState<string | null>(null)
   const [uploadErrorHotelId, setUploadErrorHotelId] = useState<string | null>(null)
@@ -260,10 +264,10 @@ export function TourismAdminDashboard() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Registered Users</CardTitle>
-          <CardDescription>All accounts on the platform</CardDescription>
+          <CardDescription>All accounts on the platform — {users.length} total</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="max-h-[360px] overflow-y-auto overflow-x-hidden rounded-md border">
+          <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -274,7 +278,7 @@ export function TourismAdminDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((u) => (
+                {paginatedUsers.map((u) => (
                   <TableRow key={u.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -296,6 +300,43 @@ export function TourismAdminDashboard() {
               </TableBody>
             </Table>
           </div>
+          {/* Pagination controls */}
+          {userTotalPages > 1 && (
+            <div className="flex items-center justify-between mt-3">
+              <p className="text-xs text-muted-foreground">
+                Page {userPage} of {userTotalPages} — showing {((userPage - 1) * USER_PAGE_SIZE) + 1}–{Math.min(userPage * USER_PAGE_SIZE, users.length)} of {users.length}
+              </p>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setUserPage(p => Math.max(1, p - 1))}
+                  disabled={userPage === 1}
+                  className="rounded-md border border-input px-2 py-1 text-xs disabled:opacity-40 hover:bg-muted"
+                >
+                  ← Prev
+                </button>
+                {Array.from({ length: Math.min(5, userTotalPages) }, (_, i) => {
+                  const pageNum = Math.max(1, Math.min(userTotalPages - 4, userPage - 2)) + i
+                  if (pageNum > userTotalPages) return null
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setUserPage(pageNum)}
+                      className={`rounded-md px-2 py-1 text-xs ${userPage === pageNum ? 'bg-primary text-primary-foreground' : 'border border-input hover:bg-muted'}`}
+                    >
+                      {pageNum}
+                    </button>
+                  )
+                })}
+                <button
+                  onClick={() => setUserPage(p => Math.min(userTotalPages, p + 1))}
+                  disabled={userPage === userTotalPages}
+                  className="rounded-md border border-input px-2 py-1 text-xs disabled:opacity-40 hover:bg-muted"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

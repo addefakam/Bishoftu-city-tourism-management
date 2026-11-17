@@ -117,6 +117,12 @@ export function SiteImageManager() {
     })),
   ]
 
+  // Pagination for site images
+  const [imgPage, setImgPage] = useState(1)
+  const IMG_PAGE_SIZE = 6
+  const imgTotalPages = Math.ceil(allItems.length / IMG_PAGE_SIZE)
+  const paginatedItems = allItems.slice((imgPage - 1) * IMG_PAGE_SIZE, imgPage * IMG_PAGE_SIZE)
+
   return (
     <Card>
       <CardHeader>
@@ -135,18 +141,53 @@ export function SiteImageManager() {
             {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-32 rounded-lg" />)}
           </div>
         ) : (
-          <div className="space-y-4">
-            {allItems.map((item) => (
-              <ImageRow
-                key={item.key}
-                item={item}
-                uploading={uploadingKey === item.key}
-                resetting={resettingKey === item.key}
-                onUpload={(file) => handleUpload(item.key, file)}
-                onReset={() => handleReset(item.key)}
-              />
-            ))}
-          </div>
+          <>
+            <div className="space-y-4">
+              {paginatedItems.map((item) => (
+                <ImageRow
+                  key={item.key}
+                  item={item}
+                  uploading={uploadingKey === item.key}
+                  resetting={resettingKey === item.key}
+                  onUpload={(file) => handleUpload(item.key, file)}
+                  onReset={() => handleReset(item.key)}
+                />
+              ))}
+            </div>
+            {/* Pagination controls */}
+            {imgTotalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-3 border-t">
+                <p className="text-xs text-muted-foreground">
+                  Page {imgPage} of {imgTotalPages} — {allItems.length} images total
+                </p>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setImgPage(p => Math.max(1, p - 1))}
+                    disabled={imgPage === 1}
+                    className="rounded-md border border-input px-2 py-1 text-xs disabled:opacity-40 hover:bg-muted"
+                  >
+                    ← Prev
+                  </button>
+                  {Array.from({ length: imgTotalPages }, (_, i) => i + 1).map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      onClick={() => setImgPage(pageNum)}
+                      className={`rounded-md px-2 py-1 text-xs ${imgPage === pageNum ? 'bg-primary text-primary-foreground' : 'border border-input hover:bg-muted'}`}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setImgPage(p => Math.min(imgTotalPages, p + 1))}
+                    disabled={imgPage === imgTotalPages}
+                    className="rounded-md border border-input px-2 py-1 text-xs disabled:opacity-40 hover:bg-muted"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
