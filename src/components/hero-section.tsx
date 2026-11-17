@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { Waves, MapPin, Sparkles, Search, ArrowRight } from 'lucide-react'
+import { Waves, MapPin, Sparkles, Search, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -21,26 +21,72 @@ function formatStat(value: number, suffix: string = ''): string {
   return value.toLocaleString() + suffix
 }
 
+// Carousel images — Bishoftu crater lakes + city scenes
+const CAROUSEL_IMAGES = [
+  'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80',
+  'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1920&q=80',
+  'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1920&q=80',
+  'https://images.unsplash.com/photo-1465056836041-7f43ac27dcb5?auto=format&fit=crop&w=1920&q=80',
+  'https://images.unsplash.com/photo-1518569656558-1f25e69d93d7?auto=format&fit=crop&w=1920&q=80',
+]
+
 export function HeroSection() {
   const [stats, setStats] = useState<CityStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [heroImage, setHeroImage] = useState<string>('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80')
+  const [currentImage, setCurrentImage] = useState(0)
+  const touchStartX = useRef(0)
+  const touchEndX = useRef(0)
 
   useEffect(() => {
-    fetch('/api/stats')
-      .then((r) => r.json())
-      .then((data) => setStats(data))
-      .catch((e) => console.error('Failed to load stats:', e))
-      .finally(() => setLoading(false))
-
-    // Fetch configurable hero background image
-    fetch('/api/site-images')
+    fetch('/api/hotels')
       .then((r) => r.json())
       .then((data) => {
-        if (data.images?.hero_background) setHeroImage(data.images.hero_background)
+        const hotels = data.hotels || []
+        const totalRooms = hotels.reduce((s: number, h: any) => s + h.totalRooms, 0)
+        const occupiedRooms = hotels.reduce((s: number, h: any) => s + h.occupiedRooms, 0)
+        setStats({
+          registeredHotels: hotels.length,
+          totalRooms,
+          availableRooms: totalRooms - occupiedRooms,
+          currentGuests: occupiedRooms,
+          cityOccupancy: totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 1000) / 10 : 0,
+          source: data.source || 'static',
+        })
       })
-      .catch(() => {/* use default */})
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [])
+
+  // Auto-advance carousel every 5 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentImage((prev) => (prev + 1) % CAROUSEL_IMAGES.length)
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const goToSlide = (index: number) => {
+    setCurrentImage(((index % CAROUSEL_IMAGES.length) + CAROUSEL_IMAGES.length) % CAROUSEL_IMAGES.length)
+  }
+
+  const nextSlide = () => goToSlide(currentImage + 1)
+  const prevSlide = () => goToSlide(currentImage - 1)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current - touchEndX.current > 50) {
+      nextSlide()
+    } else if (touchEndX.current - touchStartX.current > 50) {
+      prevSlide()
+    }
+  }
 
   const heroStats = stats
     ? [
@@ -52,18 +98,63 @@ export function HeroSection() {
     : []
 
   return (
-    <section id="home" className="relative overflow-hidden bg-primary">
-      {/* Background image + gradient overlay */}
+    <section
+      id="home"
+      className="relative overflow-hidden bg-slate-900"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Image carousel — full bleed, no overlay cover */}
       <div className="absolute inset-0 z-0">
-        <img
-          src={heroImage}
-          alt="Crater lake at Bishoftu"
-          className="h-full w-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/75 via-primary/55 to-primary/80" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
+        {CAROUSEL_IMAGES.map((img, i) => (
+          <div
+            key={i}
+            className="absolute inset-0 transition-opacity duration-700 ease-in-out"
+            style={{ opacity: i === currentImage ? 1 : 0 }}
+          >
+            <img
+              src={img}
+              alt={`Bishoftu scenery ${i + 1}`}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        ))}
+        {/* Minimal gradient only at bottom for text readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/30 to-transparent" />
       </div>
 
+      {/* Carousel arrows — left and right */}
+      <button
+        onClick={prevSlide}
+        className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white/40 transition-all"
+        aria-label="Previous image"
+      >
+        <ChevronLeft className="h-6 w-6" />
+      </button>
+      <button
+        onClick={nextSlide}
+        className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white/40 transition-all"
+        aria-label="Next image"
+      >
+        <ChevronRight className="h-6 w-6" />
+      </button>
+
+      {/* Carousel dots */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+        {CAROUSEL_IMAGES.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => goToSlide(i)}
+            className={`h-2 rounded-full transition-all ${
+              i === currentImage ? 'w-8 bg-white' : 'w-2 bg-white/40'
+            }`}
+            aria-label={`Go to image ${i + 1}`}
+          />
+        ))}
+      </div>
+
+      {/* Content */}
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 sm:py-28 lg:py-36">
         <div className="max-w-3xl text-white">
           <Badge
@@ -79,7 +170,7 @@ export function HeroSection() {
             Bishoftu City Tourism Management System
           </p>
           <p className="mt-4 max-w-2xl text-base sm:text-lg text-white/85 leading-relaxed">
-            A unified digital platform for Bishoftu City&apos;s tourism and hospitality ecosystem — connecting visitors, hotels, the Tourism Office, and authorized public services through trusted information, efficient hotel management, tourism services, and city-wide insights.
+            A unified digital platform for Bishoftu City&apos;s tourism and hospitality ecosystem — connecting visitors, hotels, the Tourism Office, and authorized public services.
           </p>
 
           {/* Search bar */}
@@ -116,7 +207,7 @@ export function HeroSection() {
           </div>
         </div>
 
-        {/* Stats strip — live from /api/stats (GMS data) */}
+        {/* Stats strip — same data source as hotels section */}
         <div className="mt-14 grid grid-cols-2 lg:grid-cols-4 gap-px overflow-hidden rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md">
           {loading || !stats ? (
             <>
@@ -137,7 +228,6 @@ export function HeroSection() {
           )}
         </div>
 
-        {/* Data source attribution */}
         {stats?.source === 'gms' && (
           <p className="mt-3 text-center text-xs text-white/60">
             Live data from Bishoftu GMS · refreshed on each visit
