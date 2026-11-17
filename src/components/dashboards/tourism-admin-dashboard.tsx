@@ -499,6 +499,8 @@ function CarouselManager() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [newUrl, setNewUrl] = useState('')
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const [editUrl, setEditUrl] = useState('')
   const { toast } = useToast()
 
   useEffect(() => {
@@ -540,9 +542,37 @@ function CarouselManager() {
     save(updated, interval)
   }
 
+  const replaceImage = (index: number) => {
+    if (!editUrl.trim()) return
+    const updated = [...images]
+    updated[index] = editUrl.trim()
+    setImages(updated)
+    setEditingIndex(null)
+    setEditUrl('')
+    save(updated, interval)
+  }
+
+  const startEdit = (index: number) => {
+    setEditingIndex(index)
+    setEditUrl(images[index])
+  }
+
   const updateInterval = (val: number) => {
     setIntervalSec(val)
     save(images, val)
+  }
+
+  // Handle file upload (convert to base64 data URL for preview, but
+  // we store the URL — admin can paste any image URL)
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result as string
+      setNewUrl(dataUrl)
+    }
+    reader.readAsDataURL(file)
   }
 
   if (loading) return <div className="text-sm text-muted-foreground">Loading carousel settings...</div>
@@ -569,42 +599,113 @@ function CarouselManager() {
       {/* Current images */}
       <div className="space-y-2">
         <p className="text-sm font-medium">Carousel Images ({images.length})</p>
+        {images.length === 0 && (
+          <p className="text-xs text-muted-foreground italic">No images yet. Add one below.</p>
+        )}
         {images.map((url, i) => (
-          <div key={i} className="flex items-center gap-3 rounded-lg border p-2">
-            <div className="h-16 w-24 shrink-0 overflow-hidden rounded-md bg-muted">
-              <img src={url} alt={`Slide ${i + 1}`} className="h-full w-full object-cover" />
+          <div key={i} className="rounded-lg border p-2 space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="h-16 w-24 shrink-0 overflow-hidden rounded-md bg-muted">
+                <img src={url} alt={`Slide ${i + 1}`} className="h-full w-full object-cover" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium">Slide {i + 1}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {url.startsWith('data:') ? 'Uploaded image' : url}
+                </p>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => startEdit(i)}
+                  className="rounded p-1 text-blue-500 hover:bg-blue-50"
+                  title="Replace image URL"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                  </svg>
+                </button>
+                <button
+                  onClick={() => removeImage(i)}
+                  className="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
+                  title="Remove image"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium">Slide {i + 1}</p>
-              <p className="text-xs text-muted-foreground truncate">{url}</p>
-            </div>
-            <button
-              onClick={() => removeImage(i)}
-              className="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            {/* Edit URL inline */}
+            {editingIndex === i && (
+              <div className="flex items-center gap-2 pl-1">
+                <input
+                  type="text"
+                  value={editUrl}
+                  onChange={(e) => setEditUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') replaceImage(i)
+                    if (e.key === 'Escape') { setEditingIndex(null); setEditUrl('') }
+                  }}
+                  placeholder="New image URL..."
+                  className="flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+                  autoFocus
+                />
+                <button
+                  onClick={() => replaceImage(i)}
+                  disabled={!editUrl.trim()}
+                  className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground disabled:opacity-50"
+                >
+                  Replace
+                </button>
+                <button
+                  onClick={() => { setEditingIndex(null); setEditUrl('') }}
+                  className="rounded-md border border-input px-2 py-1 text-xs"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
 
       {/* Add new image */}
-      <div className="flex items-center gap-2">
-        <input
-          type="url"
-          placeholder="https://example.com/image.jpg"
-          value={newUrl}
-          onChange={(e) => setNewUrl(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && addImage()}
-          className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-        <button
-          onClick={addImage}
-          disabled={!newUrl.trim()}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-        >
-          <Plus className="h-4 w-4" /> Add
-        </button>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <input
+            type="url"
+            placeholder="https://example.com/image.jpg"
+            value={newUrl.startsWith('data:') ? '' : newUrl}
+            onChange={(e) => setNewUrl(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addImage()}
+            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          />
+          <label className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium cursor-pointer hover:bg-muted">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+            </svg>
+            Upload
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+          </label>
+          <button
+            onClick={addImage}
+            disabled={!newUrl.trim()}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" /> Add
+          </button>
+        </div>
+        {newUrl.startsWith('data:') && (
+          <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-2">
+            <div className="h-12 w-20 overflow-hidden rounded">
+              <img src={newUrl} alt="Preview" className="h-full w-full object-cover" />
+            </div>
+            <p className="text-xs text-emerald-700">Image loaded — click "Add" to save</p>
+          </div>
+        )}
       </div>
     </div>
   )
