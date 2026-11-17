@@ -12,6 +12,7 @@ import { updateHotel } from '@/lib/hotel-store'
 import { getAllUsers, type User as AuthUser } from '@/lib/auth'
 import { GmsConnectionSettings } from '@/components/gms-connection-settings'
 import { SiteImageManager } from '@/components/site-image-manager'
+import { FooterManager } from '@/components/footer-manager'
 import { Globe, ExternalLink, Loader2, Image as ImageIcon, Clock, Plus, Trash2 } from 'lucide-react'
 import { compressToDataUrl } from '@/lib/image-utils'
 import { useToast } from '@/hooks/use-toast'
@@ -42,6 +43,18 @@ export function TourismAdminDashboard() {
   const USER_PAGE_SIZE = 10
   const userTotalPages = Math.ceil(users.length / USER_PAGE_SIZE)
   const paginatedUsers = users.slice((userPage - 1) * USER_PAGE_SIZE, userPage * USER_PAGE_SIZE)
+
+  // Pagination for the Hotel Website Links & Card Images list
+  const HOTEL_PAGE_SIZE = 10
+  const [hotelPage, setHotelPage] = useState(1)
+  const hotelTotalPages = Math.max(1, Math.ceil(hotels.length / HOTEL_PAGE_SIZE))
+  // Clamp the current page whenever the underlying hotel list changes
+  // (e.g. after uploads/filters reload) so we never end up on an empty page.
+  const safeHotelPage = Math.min(hotelPage, hotelTotalPages)
+  const paginatedHotels = hotels.slice(
+    (safeHotelPage - 1) * HOTEL_PAGE_SIZE,
+    safeHotelPage * HOTEL_PAGE_SIZE
+  )
   const [uploadingHotelId, setUploadingHotelId] = useState<string | null>(null)
   const [savedHotelId, setSavedHotelId] = useState<string | null>(null)
   const [uploadErrorHotelId, setUploadErrorHotelId] = useState<string | null>(null)
@@ -355,7 +368,7 @@ export function TourismAdminDashboard() {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {hotels.map((h) => (
+            {paginatedHotels.map((h) => (
               <div key={h.id} className="flex items-center gap-3 rounded-lg border p-3">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{h.name}</p>
@@ -465,6 +478,51 @@ export function TourismAdminDashboard() {
               </div>
             ))}
           </div>
+
+          {/* Pagination controls */}
+          {hotelTotalPages > 1 && (
+            <div className="flex items-center justify-between mt-3">
+              <p className="text-xs text-muted-foreground">
+                Page {safeHotelPage} of {hotelTotalPages} — showing{' '}
+                {((safeHotelPage - 1) * HOTEL_PAGE_SIZE) + 1}–
+                {Math.min(safeHotelPage * HOTEL_PAGE_SIZE, hotels.length)} of {hotels.length}
+              </p>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setHotelPage(p => Math.max(1, p - 1))}
+                  disabled={safeHotelPage === 1}
+                  className="rounded-md border border-input px-2 py-1 text-xs disabled:opacity-40 hover:bg-muted"
+                >
+                  ← Prev
+                </button>
+                {Array.from({ length: Math.min(5, hotelTotalPages) }, (_, i) => {
+                  const pageNum =
+                    Math.max(1, Math.min(hotelTotalPages - 4, safeHotelPage - 2)) + i
+                  if (pageNum > hotelTotalPages) return null
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setHotelPage(pageNum)}
+                      className={`rounded-md px-2 py-1 text-xs ${
+                        safeHotelPage === pageNum
+                          ? 'bg-primary text-primary-foreground'
+                          : 'border border-input hover:bg-muted'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  )
+                })}
+                <button
+                  onClick={() => setHotelPage(p => Math.min(hotelTotalPages, p + 1))}
+                  disabled={safeHotelPage === hotelTotalPages}
+                  className="rounded-md border border-input px-2 py-1 text-xs disabled:opacity-40 hover:bg-muted"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -487,6 +545,9 @@ export function TourismAdminDashboard() {
 
       {/* Site Image Management — replace hardcoded photos */}
       <SiteImageManager />
+
+      {/* Footer Editor — edit brand block, link lists, contact info, copyright */}
+      <FooterManager />
     </div>
   )
 }
